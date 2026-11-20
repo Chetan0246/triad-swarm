@@ -1,10 +1,20 @@
 """Triad Swarm: Minimal-Agent, Maximum-Speed, Minimum-Token Swarm Framework."""
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
+from triad.agents.polyglot import PolyglotVerifier
+from triad.agents.spec_generator import SpecGeneratorAgent
 from triad.core.cache import PromptCacheManager
-from triad.core.contracts import ASTContractValidator, TracebackPruner, ContractViolation
-from triad.core.llm import BaseLLMProvider, CachedLLMProvider, MockLLMProvider, get_llm_provider
+from triad.core.contracts import ASTContractValidator, ContractViolation, TracebackPruner
+from triad.core.llm import (
+    BaseLLMProvider,
+    CachedLLMProvider,
+    GeminiProvider,
+    MockLLMProvider,
+    OpenAICompatibleProvider,
+    OpenAIProvider,
+    get_llm_provider,
+)
 from triad.core.models import (
     ExecutionResult,
     InterfaceContract,
@@ -13,9 +23,12 @@ from triad.core.models import (
     VerificationResult,
     WorkloadSpec,
 )
+from triad.core.repomap import RepoMapGenerator
+from triad.core.router import ModelRouter
 from triad.core.sandbox import IsolatedSandbox
 from triad.core.telemetry import SwarmTracer, TraceSpan
 from triad.core.token_tracker import TokenRecord, TokenTracker
+from triad.core.web import FreeWebEngine, TinyFishClient
 from triad.orchestrator.engine import TriadEngine
 from triad.orchestrator.scheduler import CircularDependencyError, DAGScheduler, MissingDependencyError
 
@@ -42,5 +55,14 @@ __all__ = [
     "BaseLLMProvider",
     "CachedLLMProvider",
     "MockLLMProvider",
+    "GeminiProvider",
+    "OpenAIProvider",
+    "OpenAICompatibleProvider",
+    "ModelRouter",
+    "RepoMapGenerator",
+    "TinyFishClient",
+    "FreeWebEngine",
+    "SpecGeneratorAgent",
+    "PolyglotVerifier",
     "TriadEngine",
 ]

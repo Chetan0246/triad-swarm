@@ -50,17 +50,32 @@ class ArchitectAgent(BaseAgent):
     def __init__(self, llm: BaseLLMProvider, tracker: TokenTracker):
         super().__init__(agent_id="architect_01", role="architect", llm=llm, tracker=tracker)
 
-    async def decompose_workload(self, spec: WorkloadSpec) -> List[TaskSlice]:
+    async def decompose_workload(
+        self,
+        spec: WorkloadSpec,
+        repo_map: Optional[str] = None,
+    ) -> List[TaskSlice]:
         """Analyze workload and produce decoupled TaskSlices."""
-        prompt = (
-            f"Workload Name: {spec.name}\n"
-            f"Description: {spec.description}\n"
-            f"Acceptance Criteria:\n"
-            + "\n".join(f"- {c}" for c in spec.acceptance_criteria)
-            + "\n\nInitial Files:\n"
-            + "\n".join(f"File `{k}`:\n```\n{v}\n```" for k, v in spec.initial_files.items())
-            + "\n\nDecompose this workload into parallel, contract-first TaskSlices in JSON format."
-        )
+        prompt_parts = [
+            f"Workload Name: {spec.name}",
+            f"Description: {spec.description}",
+            "Acceptance Criteria:\n" + "\n".join(f"- {c}" for c in spec.acceptance_criteria),
+        ]
+
+        if spec.initial_files:
+            prompt_parts.append(
+                "Initial Files:\n"
+                + "\n".join(f"File `{k}`:\n```\n{v}\n```" for k, v in spec.initial_files.items())
+            )
+
+        if repo_map:
+            prompt_parts.append(
+                f"Existing Codebase AST Map:\n```\n{repo_map}\n```\n"
+                f"Ensure planned slices interface cleanly with existing modules and classes."
+            )
+
+        prompt_parts.append("Decompose this workload into parallel, contract-first TaskSlices in JSON format.")
+        prompt = "\n\n".join(prompt_parts)
 
         resp = await self.prompt_llm(
             prompt=prompt,

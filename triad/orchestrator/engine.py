@@ -14,6 +14,7 @@ from triad.agents.worker import WorkerAgent
 from triad.core.cache import PromptCacheManager
 from triad.core.llm import BaseLLMProvider, CachedLLMProvider, get_llm_provider
 from triad.core.models import ExecutionResult, SwarmMetrics, TaskSlice, VerificationResult, WorkloadSpec
+from triad.core.router import ModelRouter
 from triad.core.sandbox import IsolatedSandbox
 from triad.core.telemetry import SwarmTracer
 from triad.core.token_tracker import TokenTracker
@@ -26,6 +27,9 @@ class TriadEngine:
     def __init__(
         self,
         llm: Optional[BaseLLMProvider] = None,
+        architect_llm: Optional[BaseLLMProvider] = None,
+        worker_llm: Optional[BaseLLMProvider] = None,
+        router: Optional[ModelRouter] = None,
         max_concurrency: int = 4,
         max_healing_attempts: int = 3,
         output_dir: Optional[str] = None,
@@ -34,14 +38,23 @@ class TriadEngine:
         trace_output_path: Optional[str] = None,
         enable_tracing: bool = True,
     ):
-        raw_llm = llm or get_llm_provider()
         self.enable_cache = enable_cache
-        if enable_cache and not isinstance(raw_llm, CachedLLMProvider):
-            self.cache_manager = PromptCacheManager(cache_dir=cache_dir)
-            self.llm: BaseLLMProvider = CachedLLMProvider(raw_llm, cache=self.cache_manager)
+        self.cache_manager = PromptCacheManager(cache_dir=cache_dir) if enable_cache else None
+
+        if router:
+            self.architect_llm = router.get_architect_llm()
+            self.worker_llm = router.get_worker_llm()
+            self.llm = self.architect_llm
         else:
-            self.cache_manager = getattr(raw_llm, "cache", None) or PromptCacheManager()
-            self.llm = raw_llm
+            raw_llm = llm or get_llm_provider()
+            if enable_cache and not isinstance(raw_llm, CachedLLMProvider):
+                self.llm: BaseLLMProvider = CachedLLMProvider(raw_llm, cache=self.cache_manager)
+            else:
+                self.cache_manager = getattr(raw_llm, "cache", None) or self.cache_manager
+                self.llm = raw_llm
+
+            self.architect_llm = architect_llm or self.llm
+            self.worker_llm = worker_llm or self.llm
 
         self.max_concurrency = max_concurrency
         self.max_healing_attempts = max_healing_attempts
@@ -51,11 +64,15 @@ class TriadEngine:
 
         self.tracker = TokenTracker()
         self.tracer = SwarmTracer(trace_name="triad_swarm_engine")
-        self.architect = ArchitectAgent(llm=self.llm, tracker=self.tracker)
+        self.architect = ArchitectAgent(llm=self.architect_llm, tracker=self.tracker)
         self.verifier = DeterministicVerifier(tracker=self.tracker)
         self.semaphore = asyncio.Semaphore(max_concurrency)
 
-    async def execute_workload(self, spec: WorkloadSpec) -> SwarmMetrics:
+    async def execute_workload(
+        self,
+        spec: WorkloadSpec,
+        repo_map: Optional[str] = None,
+    ) -> SwarmMetrics:
         """Execute complete end-to-end workload through the DAG-scheduled Triad Swarm."""
         start_time = time.perf_counter()
         workload_span = self.tracer.start_span(
@@ -71,7 +88,7 @@ class TriadEngine:
             phase="architect",
             agent_id=self.architect.agent_id,
         )
-        slices = await self.architect.decompose_workload(spec)
+        slices = await self.architect.decompose_workload(spec, repo_map=repo_map)
         arch_span.finish(status="success", metadata={"slice_count": len(slices)})
 
         if not slices:
@@ -193,7 +210,7 @@ class TriadEngine:
         async with self.semaphore:
             worker_t0 = time.perf_counter()
             worker_id = f"worker_{worker_index+1}_{task_slice.slice_id}"
-            worker = WorkerAgent(worker_id=worker_id, llm=self.llm, tracker=self.tracker)
+            worker = WorkerAgent(worker_id=worker_id, llm=self.worker_llm, tracker=self.tracker)
 
             sandbox = IsolatedSandbox(
                 cleanup=False,

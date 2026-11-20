@@ -14,9 +14,13 @@ from rich.panel import Panel
 from rich.table import Table
 
 from triad import __version__
+from triad.agents.spec_generator import SpecGeneratorAgent
 from triad.core.contracts import ASTContractValidator
 from triad.core.llm import get_llm_provider, MockLLMProvider, populate_mock_telemetry_defaults
 from triad.core.models import InterfaceContract, WorkloadSpec
+from triad.core.repomap import RepoMapGenerator
+from triad.core.router import ModelRouter
+from triad.core.web import FreeWebEngine, TinyFishClient
 from triad.orchestrator.engine import TriadEngine
 from triad.orchestrator.naive_engine import NaiveBaselineEngine
 from triad.orchestrator.scheduler import DAGScheduler
@@ -27,7 +31,7 @@ console = Console()
 def render_banner() -> None:
     banner = f"""[bold cyan]Triad Swarm[/bold cyan] [dim]v{__version__}[/dim]
 [italic green]Minimal Agents • Maximum Parallel Speed • Minimum Token Consumption[/italic green]
-[dim]Reactive DAG Scheduling • Zero-Token AST Verification • Multi-Tier Caching[/dim]"""
+[dim]Reactive DAG Scheduling • Zero-Token AST Verification • Multi-Tier Caching • TinyFish Web[/dim]"""
     console.print(Panel(banner, border_style="cyan"))
 
 
@@ -35,6 +39,9 @@ async def run_workload_cmd(
     workload_path: str,
     concurrency: int,
     provider_name: str,
+    architect_model: Optional[str],
+    worker_model: Optional[str],
+    repo_map_path: Optional[str],
     output_dir: Optional[str],
     trace_file: Optional[str],
     enable_cache: bool,
@@ -49,14 +56,32 @@ async def run_workload_cmd(
     spec = WorkloadSpec(**data)
 
     console.print(f"🚀 [bold]Starting workload:[/bold] [yellow]{spec.name}[/yellow]")
-    console.print(f"⚙️  [dim]Provider:[/dim] {provider_name} | [dim]Concurrency:[/dim] {concurrency} | [dim]Cache:[/dim] {enable_cache}\n")
+    
+    # Asymmetric Router Setup
+    router = ModelRouter(
+        architect_spec=architect_model or provider_name,
+        worker_spec=worker_model or provider_name,
+        enable_cache=enable_cache,
+    )
+    arch_llm = router.get_architect_llm()
+    raw_arch = getattr(arch_llm, "provider", arch_llm)
+    if isinstance(raw_arch, MockLLMProvider):
+        populate_mock_telemetry_defaults(raw_arch)
+    raw_worker = getattr(router.get_worker_llm(), "provider", router.get_worker_llm())
+    if isinstance(raw_worker, MockLLMProvider):
+        populate_mock_telemetry_defaults(raw_worker)
 
-    llm = get_llm_provider(provider_name=provider_name)
-    if isinstance(llm, MockLLMProvider):
-        populate_mock_telemetry_defaults(llm)
+    console.print(f"⚙️  [dim]Architect Model:[/dim] {router.architect_spec} | [dim]Worker Model:[/dim] {router.worker_spec}")
+    console.print(f"⚙️  [dim]Concurrency:[/dim] {concurrency} | [dim]Cache:[/dim] {enable_cache}\n")
+
+    repo_map_str = None
+    if repo_map_path:
+        repo_gen = RepoMapGenerator(root_dir=repo_map_path)
+        repo_map_str = repo_gen.generate_map()
+        console.print(f"🗺️  [dim]Injected repository AST map from {repo_map_path}[/dim]")
 
     engine = TriadEngine(
-        llm=llm,
+        router=router,
         max_concurrency=concurrency,
         output_dir=output_dir,
         enable_cache=enable_cache,
@@ -64,7 +89,7 @@ async def run_workload_cmd(
         trace_output_path=trace_file,
     )
 
-    metrics = await engine.execute_workload(spec)
+    metrics = await engine.execute_workload(spec, repo_map=repo_map_str)
 
     table = Table(title="✨ Triad Swarm Execution Summary", border_style="green")
     table.add_column("Metric", style="cyan", no_wrap=True)
@@ -93,6 +118,120 @@ async def run_workload_cmd(
     if trace_file:
         console.print(f"\n[green]✔ Chrome DevTools Trace saved to:[/green] [bold]{trace_file}[/bold]")
         console.print("[dim]Open chrome://tracing or https://ui.perfetto.dev to view the interactive timeline.[/dim]")
+
+
+async def new_feature_cmd(
+    prompt: str,
+    out_spec_path: Optional[str],
+    run_swarm: bool,
+    output_dir: Optional[str],
+    provider: str,
+    architect_model: Optional[str],
+    worker_model: Optional[str],
+    repo_map_path: Optional[str],
+    concurrency: int,
+    no_cache: bool,
+) -> None:
+    """Zero-JSON natural language feature synthesis and autonomous execution."""
+    render_banner()
+    console.print(f"✨ [bold green]Zero-JSON Feature Architect:[/bold green] \"{prompt}\"\n")
+
+    repo_map_str = None
+    if repo_map_path:
+        repo_gen = RepoMapGenerator(root_dir=repo_map_path)
+        repo_map_str = repo_gen.generate_map()
+        console.print(f"🗺️  [dim]Injected repository AST map from {repo_map_path}[/dim]")
+
+    router = ModelRouter(
+        architect_spec=architect_model or provider,
+        worker_spec=worker_model or provider,
+        enable_cache=not no_cache,
+    )
+    architect_llm = router.get_architect_llm()
+    raw_arch = getattr(architect_llm, "provider", architect_llm)
+    if isinstance(raw_arch, MockLLMProvider):
+        populate_mock_telemetry_defaults(raw_arch)
+    raw_worker = getattr(router.get_worker_llm(), "provider", router.get_worker_llm())
+    if isinstance(raw_worker, MockLLMProvider):
+        populate_mock_telemetry_defaults(raw_worker)
+
+    spec_gen = SpecGeneratorAgent(llm=architect_llm)
+    with console.status("[bold cyan]Synthesizing formal WorkloadSpec and interface contracts..."):
+        spec = await spec_gen.generate_spec(prompt=prompt, repo_map=repo_map_str)
+
+    console.print(f"✔ [bold green]Synthesized Workload:[/bold green] [yellow]{spec.name}[/yellow]")
+    console.print(f"  [dim]Criteria:[/dim] {len(spec.acceptance_criteria)} acceptance rules defined.")
+
+    if out_spec_path:
+        out_p = Path(out_spec_path)
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        out_p.write_text(spec.model_dump_json(indent=2), encoding="utf-8")
+        console.print(f"✔ [cyan]Saved workload specification to:[/cyan] [bold]{out_spec_path}[/bold]")
+
+    if run_swarm:
+        console.print(f"\n🚀 [bold]Dispatching Triad Swarm to build & verify code...[/bold]")
+        engine = TriadEngine(
+            router=router,
+            max_concurrency=concurrency,
+            output_dir=output_dir or "./out",
+            enable_cache=not no_cache,
+        )
+        metrics = await engine.execute_workload(spec, repo_map=repo_map_str)
+
+        table = Table(title="✨ Execution Outcome", border_style="green")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="magenta")
+        table.add_row("Tasks Succeeded / Total", f"{metrics.tasks_succeeded} / {metrics.tasks_total}")
+        table.add_row("Total Wall Time", f"{metrics.wall_clock_seconds:.2f} s")
+        table.add_row("Parallel Speedup", f"{metrics.parallel_speedup:.2f}x")
+        table.add_row("Zero-Token Verifications", f"{metrics.zero_token_verifications} (100% Deterministic)")
+        table.add_row("Output Directory", str(output_dir or "./out"))
+        console.print(table)
+
+
+def repomap_cmd(path: str) -> None:
+    """Scan and print the AST symbol map of a project codebase."""
+    render_banner()
+    p = Path(path).resolve()
+    console.print(f"🔍 [bold cyan]Scanning repository AST symbols at:[/bold cyan] {p}\n")
+    gen = RepoMapGenerator(root_dir=str(p))
+    map_str = gen.generate_map()
+    console.print(map_str)
+    tokens_est = int(len(map_str) * 0.25)
+    console.print(f"\n[dim]Estimated context size: ~{tokens_est:,} tokens (Bounded O(1) context for Architect)[/dim]")
+
+
+async def search_cmd(query: str, max_results: int) -> None:
+    """Search web using TinyFish API or zero-cost free fallback."""
+    render_banner()
+    console.print(f"🔎 [bold cyan]Web Search Query:[/bold cyan] \"{query}\"\n")
+    client = TinyFishClient()
+    resp = await client.search(query=query, max_results=max_results)
+
+    table = Table(title=f"Search Results (Provider: {resp.provider}, Time: {resp.duration_seconds:.2f}s)", border_style="cyan")
+    table.add_column("#", style="dim", width=4)
+    table.add_column("Title", style="bold cyan", max_width=40)
+    table.add_column("URL", style="green", max_width=45)
+    table.add_column("Snippet", style="white")
+
+    if not resp.results:
+        console.print("[yellow]No results returned or offline fallback completed.[/yellow]")
+    else:
+        for i, res in enumerate(resp.results, 1):
+            table.add_row(str(i), res.title, res.url, res.snippet[:120] + "...")
+        console.print(table)
+
+
+async def fetch_cmd(url: str, max_chars: int) -> None:
+    """Fetch URL content using TinyFish API or zero-cost free scraper."""
+    render_banner()
+    console.print(f"🌐 [bold cyan]Fetching URL:[/bold cyan] {url}\n")
+    client = TinyFishClient()
+    resp = await client.fetch(url=url, max_chars=max_chars)
+    if resp.title:
+        console.print(f"[bold]Title:[/bold] {resp.title}")
+    console.print(f"[dim]Provider: {resp.provider} | Length: {len(resp.content)} chars | Truncated: {resp.truncated}[/dim]\n")
+    console.print(Panel(resp.content, title="Clean Extracted Content", border_style="green"))
 
 
 async def graph_workload_cmd(workload_path: str, mermaid: bool) -> None:
@@ -239,14 +378,44 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Triad Swarm: Minimal-Agent High-Efficiency Framework")
     subparsers = parser.add_subparsers(dest="command", help="Sub-commands")
 
+    # New command (Zero-JSON feature synthesis)
+    new_parser = subparsers.add_parser("new", help="Synthesize and optionally execute a feature from natural language")
+    new_parser.add_argument("prompt", type=str, help="Natural language description of the feature to build")
+    new_parser.add_argument("--out", "-o", type=str, default=None, help="Save generated WorkloadSpec JSON to file")
+    new_parser.add_argument("--run", "-r", action="store_true", help="Immediately execute the swarm to build code")
+    new_parser.add_argument("--output-dir", type=str, default="./out", help="Directory to sync verified code")
+    new_parser.add_argument("--provider", "-p", type=str, default="gemini", help="Default LLM provider (gemini, openai, ollama, mock)")
+    new_parser.add_argument("--architect-model", type=str, default=None, help="Model spec for Architect (e.g. gemini/gemini-3.8-flash, openai/gpt-4o)")
+    new_parser.add_argument("--worker-model", type=str, default=None, help="Model spec for Workers (e.g. gemini/gemini-3.8-flash, ollama/qwen2.5-coder)")
+    new_parser.add_argument("--repo-map", type=str, default=None, help="Path to existing repo to map AST symbols")
+    new_parser.add_argument("--concurrency", "-c", type=int, default=4, help="Max parallel workers (default: 4)")
+    new_parser.add_argument("--no-cache", action="store_true", help="Disable prompt caching")
+
     # Run command
-    run_parser = subparsers.add_parser("run", help="Run a workload specification")
+    run_parser = subparsers.add_parser("run", help="Run a workload specification JSON")
     run_parser.add_argument("workload", type=str, help="Path to JSON workload specification file")
     run_parser.add_argument("--concurrency", "-c", type=int, default=4, help="Max parallel workers (default: 4)")
-    run_parser.add_argument("--provider", "-p", type=str, default="gemini", choices=["gemini", "openai", "mock"], help="LLM provider")
+    run_parser.add_argument("--provider", "-p", type=str, default="gemini", help="Default LLM provider (gemini, openai, ollama, mock)")
+    run_parser.add_argument("--architect-model", type=str, default=None, help="Model spec for Architect")
+    run_parser.add_argument("--worker-model", type=str, default=None, help="Model spec for Workers")
+    run_parser.add_argument("--repo-map", type=str, default=None, help="Path to existing codebase to extract AST context")
     run_parser.add_argument("--out", "-o", type=str, default=None, help="Directory to sync generated verified code")
     run_parser.add_argument("--trace-file", "-t", type=str, default=None, help="Path to export Chrome trace event JSON")
     run_parser.add_argument("--no-cache", action="store_true", help="Disable exact semantic prompt caching")
+
+    # Repomap command
+    repo_parser = subparsers.add_parser("repomap", help="Scan and print codebase AST symbol map")
+    repo_parser.add_argument("path", type=str, nargs="?", default=".", help="Root directory of codebase (default: .)")
+
+    # Search command (TinyFish)
+    search_parser = subparsers.add_parser("search", help="Search the web via TinyFish API or zero-cost free fallback")
+    search_parser.add_argument("query", type=str, help="Search query string")
+    search_parser.add_argument("--max-results", "-n", type=int, default=5, help="Max search results (default: 5)")
+
+    # Fetch command (TinyFish)
+    fetch_parser = subparsers.add_parser("fetch", help="Fetch and clean web page content via TinyFish or free scraper")
+    fetch_parser.add_argument("url", type=str, help="URL to fetch")
+    fetch_parser.add_argument("--max-chars", "-m", type=int, default=4000, help="Max characters to extract (default: 4000)")
 
     # Graph command
     graph_parser = subparsers.add_parser("graph", help="Visualize dependency DAG and topological waves")
@@ -261,7 +430,7 @@ def main() -> None:
     # Benchmark command
     bench_parser = subparsers.add_parser("benchmark", help="Run side-by-side benchmark comparison")
     bench_parser.add_argument("--slices", "-s", type=int, default=4, help="Number of task slices (default: 4)")
-    bench_parser.add_argument("--provider", "-p", type=str, default="mock", choices=["mock", "gemini", "openai"], help="LLM provider")
+    bench_parser.add_argument("--provider", "-p", type=str, default="mock", help="LLM provider")
 
     # Dashboard command
     subparsers.add_parser("dashboard", help="Open the interactive architecture and benchmark visualizer")
@@ -271,17 +440,41 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.command == "run":
+    if args.command == "new":
+        asyncio.run(
+            new_feature_cmd(
+                prompt=args.prompt,
+                out_spec_path=args.out,
+                run_swarm=args.run,
+                output_dir=args.output_dir,
+                provider=args.provider,
+                architect_model=args.architect_model,
+                worker_model=args.worker_model,
+                repo_map_path=args.repo_map,
+                concurrency=args.concurrency,
+                no_cache=args.no_cache,
+            )
+        )
+    elif args.command == "run":
         asyncio.run(
             run_workload_cmd(
                 workload_path=args.workload,
                 concurrency=args.concurrency,
                 provider_name=args.provider,
+                architect_model=args.architect_model,
+                worker_model=args.worker_model,
+                repo_map_path=args.repo_map,
                 output_dir=args.out,
                 trace_file=args.trace_file,
                 enable_cache=not args.no_cache,
             )
         )
+    elif args.command == "repomap":
+        repomap_cmd(args.path)
+    elif args.command == "search":
+        asyncio.run(search_cmd(args.query, args.max_results))
+    elif args.command == "fetch":
+        asyncio.run(fetch_cmd(args.url, args.max_chars))
     elif args.command == "graph":
         asyncio.run(graph_workload_cmd(args.workload, args.mermaid))
     elif args.command == "verify":

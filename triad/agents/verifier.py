@@ -19,6 +19,8 @@ class DeterministicVerifier:
 
     def __init__(self, tracker: TokenTracker):
         self.tracker = tracker
+        from triad.agents.polyglot import PolyglotVerifier
+        self.polyglot = PolyglotVerifier(tracker=tracker)
 
     def verify(
         self,
@@ -27,6 +29,14 @@ class DeterministicVerifier:
         timeout_seconds: int = 20,
     ) -> VerificationResult:
         """Execute deterministic verification pipeline with traceback pruning."""
+        # Check if polyglot runner should handle this slice
+        if task_slice.contract.language in ("typescript", "javascript"):
+            return self.polyglot.verify(
+                task_slice=task_slice,
+                sandbox=sandbox,
+                timeout_seconds=timeout_seconds,
+            )
+
         slice_id = task_slice.slice_id
 
         # Phase 1: AST Contract & Security Validation (Zero tokens)

@@ -281,6 +281,82 @@ class OpenAIProvider(BaseLLMProvider):
             )
 
 
+class OpenAICompatibleProvider(BaseLLMProvider):
+    """
+    OpenAI-compatible REST API provider for local models (Ollama, vLLM, LMStudio, LocalAI).
+    Allows running Triad Swarm 100% locally with 0 API costs and complete data privacy.
+    """
+
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        model: str = "qwen2.5-coder:7b",
+    ):
+        raw_base = (
+            base_url
+            or os.environ.get("OPENAI_BASE_URL")
+            or os.environ.get("OLLAMA_HOST")
+            or "http://localhost:11434/v1"
+        ).rstrip("/")
+        if not raw_base.endswith("/chat/completions"):
+            self.endpoint = f"{raw_base}/chat/completions"
+        else:
+            self.endpoint = raw_base
+        self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "local-token")
+        self.model = model
+
+    async def generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        json_mode: bool = False,
+        temperature: float = 0.2,
+    ) -> LLMResponse:
+        t0 = time.perf_counter()
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        payload: Dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+        }
+        if json_mode:
+            payload["response_format"] = {"type": "json_object"}
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+        }
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(self.endpoint, json=payload, headers=headers)
+            duration = time.perf_counter() - t0
+
+            if resp.status_code != 200:
+                raise RuntimeError(f"OpenAI-compatible endpoint error ({resp.status_code}): {resp.text}")
+
+            data = resp.json()
+            content_text = data["choices"][0]["message"]["content"]
+            usage = data.get("usage", {})
+            prompt_tokens = usage.get("prompt_tokens", max(1, int(len(prompt) / 4)))
+            completion_tokens = usage.get("completion_tokens", max(1, int(len(content_text) / 4)))
+
+            return LLMResponse(
+                content=content_text,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                cached_tokens=0,
+                total_tokens=usage.get("total_tokens", prompt_tokens + completion_tokens),
+                duration_seconds=duration,
+                raw_response=data,
+            )
+
+
 class CachedLLMProvider(BaseLLMProvider):
     """
     Transparent prompt cache wrapper around any BaseLLMProvider.
@@ -330,12 +406,19 @@ def get_llm_provider(
     model: Optional[str] = None,
     enable_cache: bool = False,
     cache: Any = None,
+    base_url: Optional[str] = None,
 ) -> BaseLLMProvider:
     """Factory helper to obtain an LLM provider based on config or env."""
     choice = provider_name or os.environ.get("TRIAD_LLM_PROVIDER", "").lower()
 
     if choice == "mock":
         provider: BaseLLMProvider = MockLLMProvider()
+    elif choice in ("ollama", "local", "vllm", "openai-compatible"):
+        provider = OpenAICompatibleProvider(
+            base_url=base_url,
+            api_key=api_key,
+            model=model or "qwen2.5-coder:7b",
+        )
     elif (choice == "gemini" or not choice) and (api_key or os.environ.get("GEMINI_API_KEY")):
         provider = GeminiProvider(api_key=api_key, model=model or os.environ.get("GEMINI_MODEL", "gemini-3.8-flash"))
     elif (choice == "openai" or not choice) and (api_key or os.environ.get("OPENAI_API_KEY")):

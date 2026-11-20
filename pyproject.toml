@@ -1,6 +1,6 @@
 [project]
 name = "triad-swarm"
-version = "0.2.0"
+version = "0.3.0"
 description = "Minimal-Agent, Maximum-Speed, Minimum-Token Multi-Agent Swarm Framework"
 readme = "README.md"
 requires-python = ">=3.11"
