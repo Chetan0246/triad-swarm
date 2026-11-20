@@ -149,11 +149,11 @@ class MockLLMProvider(BaseLLMProvider):
 class GeminiProvider(BaseLLMProvider):
     """Direct asynchronous Google Gemini REST API provider with token tracking."""
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "gemini-2.5-flash"):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY environment variable is required for GeminiProvider.")
-        self.model = model
+        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
         self.base_url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
 
     async def generate(
@@ -281,25 +281,71 @@ class OpenAIProvider(BaseLLMProvider):
             )
 
 
+class CachedLLMProvider(BaseLLMProvider):
+    """
+    Transparent prompt cache wrapper around any BaseLLMProvider.
+    Yields 0 network requests and sub-millisecond responses on exact semantic hits.
+    """
+
+    def __init__(self, provider: BaseLLMProvider, cache: Any = None):
+        from triad.core.cache import PromptCacheManager
+        self.provider = provider
+        self.cache = cache if cache is not None else PromptCacheManager()
+        self.model = getattr(provider, "model", "default")
+
+    async def generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        json_mode: bool = False,
+        temperature: float = 0.2,
+    ) -> LLMResponse:
+        key = self.cache.compute_key(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            json_mode=json_mode,
+            model=self.model,
+            temperature=temperature,
+        )
+        cached = self.cache.get(key)
+        if cached is not None:
+            return cached
+
+        resp = await self.provider.generate(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            json_mode=json_mode,
+            temperature=temperature,
+        )
+        self.cache.put(key, resp)
+        return resp
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.provider, name)
+
+
 def get_llm_provider(
     provider_name: Optional[str] = None,
     api_key: Optional[str] = None,
     model: Optional[str] = None,
+    enable_cache: bool = False,
+    cache: Any = None,
 ) -> BaseLLMProvider:
     """Factory helper to obtain an LLM provider based on config or env."""
     choice = provider_name or os.environ.get("TRIAD_LLM_PROVIDER", "").lower()
 
     if choice == "mock":
-        return MockLLMProvider()
+        provider: BaseLLMProvider = MockLLMProvider()
+    elif (choice == "gemini" or not choice) and (api_key or os.environ.get("GEMINI_API_KEY")):
+        provider = GeminiProvider(api_key=api_key, model=model or os.environ.get("GEMINI_MODEL", "gemini-3.8-flash"))
+    elif (choice == "openai" or not choice) and (api_key or os.environ.get("OPENAI_API_KEY")):
+        provider = OpenAIProvider(api_key=api_key, model=model or "gpt-4o-mini")
+    else:
+        provider = MockLLMProvider()
 
-    if (choice == "gemini" or not choice) and (api_key or os.environ.get("GEMINI_API_KEY")):
-        return GeminiProvider(api_key=api_key, model=model or "gemini-2.5-flash")
-
-    if (choice == "openai" or not choice) and (api_key or os.environ.get("OPENAI_API_KEY")):
-        return OpenAIProvider(api_key=api_key, model=model or "gpt-4o-mini")
-
-    # Fallback to Mock if neither key is configured
-    return MockLLMProvider()
+    if enable_cache:
+        return CachedLLMProvider(provider, cache=cache)
+    return provider
 
 
 def populate_mock_telemetry_defaults(mock: MockLLMProvider) -> None:

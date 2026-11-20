@@ -13,7 +13,12 @@ from typing import Dict, List, Optional, Tuple
 class IsolatedSandbox:
     """An isolated filesystem and execution environment for a single Worker Agent."""
 
-    def __init__(self, base_dir: Optional[str] = None, cleanup: bool = False, allowed_files: Optional[List[str]] = None):
+    def __init__(
+        self,
+        base_dir: Optional[str] = None,
+        cleanup: bool = False,
+        allowed_files: Optional[List[str]] = None,
+    ):
         self.cleanup = cleanup
         self.allowed_files = allowed_files
         if base_dir:
@@ -70,8 +75,29 @@ class IsolatedSandbox:
         p.write_text(new_content, encoding="utf-8")
         return True
 
+    def mount_artifacts_from(self, source_sandbox: IsolatedSandbox, files: Optional[List[str]] = None) -> List[str]:
+        """
+        Mount / copy verified upstream artifacts into this sandbox.
+        Essential for DAG wave execution where downstream slices consume upstream modules.
+        """
+        mounted = []
+        source_files = source_sandbox.get_all_written_files()
+        for rel_path, content in source_files.items():
+            if files is None or rel_path in files:
+                p = self.resolve_path(rel_path)
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(content, encoding="utf-8")
+                mounted.append(rel_path)
+        return mounted
+
     def exec_command(self, cmd: str, timeout_seconds: int = 30) -> Tuple[int, str, str]:
-        """Minimal exec tool running inside the sandbox root directory."""
+        """Minimal exec tool running inside the sandbox root directory with isolated PYTHONPATH."""
+        env = dict(os.environ)
+        # Ensure root directory is on PYTHONPATH for clean relative imports
+        existing_pythonpath = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = f"{self.root}:{existing_pythonpath}" if existing_pythonpath else str(self.root)
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+
         try:
             res = subprocess.run(
                 cmd,
@@ -80,6 +106,7 @@ class IsolatedSandbox:
                 capture_output=True,
                 text=True,
                 timeout=timeout_seconds,
+                env=env,
             )
             return res.returncode, res.stdout, res.stderr
         except subprocess.TimeoutExpired:

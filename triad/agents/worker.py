@@ -16,7 +16,7 @@ WORKER_SYSTEM_PROMPT = """You are an expert, minimalist Worker Agent.
 Your objective is to implement the specified TaskSlice to fulfill its InterfaceContract and pass all acceptance tests.
 
 Requirements:
-1. CONTRACT COMPLIANCE: Implement all exported symbols with exact signatures and types specified.
+1. CONTRACT COMPLIANCE: Implement all exported symbols with exact signatures, types, and invariants specified.
 2. TOKEN EFFICIENCY: Generate production-ready code with minimal token overhead.
 3. CONTEXT ISOLATION: Focus strictly on your assigned target files.
 
@@ -54,6 +54,12 @@ class WorkerAgent(BaseAgent):
             "signatures": task_slice.contract.signatures,
             "invariants": task_slice.contract.invariants,
         }
+        if task_slice.contract.type_hints:
+            contract_info["type_hints"] = task_slice.contract.type_hints
+        if task_slice.contract.required_classes:
+            contract_info["required_classes"] = task_slice.contract.required_classes
+        if task_slice.contract.forbidden_imports:
+            contract_info["forbidden_imports"] = task_slice.contract.forbidden_imports
 
         prompt_parts = [
             f"Task Slice: {task_slice.slice_id} - {task_slice.title}",
@@ -70,18 +76,21 @@ class WorkerAgent(BaseAgent):
             prompt_parts.append(
                 f"ATTENTION: Previous attempt failed with verification error:\n"
                 f"```\n{previous_error}\n```\n"
-                f"Analyze the error and fix the implementation to pass the contract and tests."
+                f"Analyze the error and fix the implementation to strictly fulfill the contract and pass tests."
             )
 
         prompt = "\n\n".join(prompt_parts)
-
         phase_name = f"worker_{task_slice.slice_id}" if iteration == 1 else f"healing_{task_slice.slice_id}"
+
+        # Adaptive temperature: use lower temperature (0.1) on healing retries for targeted precision
+        temperature = 0.1 if iteration > 1 else 0.2
 
         resp = await self.prompt_llm(
             prompt=prompt,
             system_prompt=WORKER_SYSTEM_PROMPT,
             json_mode=True,
             phase=phase_name,
+            temperature=temperature,
         )
 
         # Parse generated files

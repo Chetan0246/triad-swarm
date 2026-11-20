@@ -8,16 +8,32 @@ from pydantic import BaseModel, Field
 
 
 class InterfaceContract(BaseModel):
-    """Formal interface contract defining expected symbols and behavior."""
+    """Formal interface contract defining expected symbols, types, invariants, and security rules."""
     module_path: str = Field(description="Relative path of the module (e.g. storage/db.py)")
     exported_symbols: List[str] = Field(default_factory=list, description="Exported classes, functions, or variables")
     signatures: Dict[str, str] = Field(default_factory=dict, description="Symbol name -> Type signature / specification")
+    type_hints: Dict[str, Dict[str, str]] = Field(
+        default_factory=dict,
+        description="Detailed type hint map: symbol -> {arg_name: type_str, 'return': type_str}"
+    )
+    required_classes: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Class name -> List of required method names that must exist"
+    )
+    forbidden_imports: List[str] = Field(
+        default_factory=list,
+        description="Modules strictly forbidden from being imported (e.g., subprocess, pickle)"
+    )
     contract_schema: Optional[Dict[str, Any]] = Field(default=None, description="Optional JSON Schema / type contract")
     invariants: List[str] = Field(default_factory=list, description="Logical invariants that must hold true")
+    language: Literal["python", "typescript", "json_schema"] = Field(
+        default="python",
+        description="Target language for contract verification"
+    )
 
 
 class TaskSlice(BaseModel):
-    """An independent, decoupled task slice assigned to an isolated worker."""
+    """An independent or DAG-dependent task slice assigned to an isolated worker."""
     slice_id: str = Field(description="Unique identifier for the slice (e.g. slice_db_layer)")
     title: str = Field(description="Short descriptive title")
     description: str = Field(description="Actionable, clear requirements for the slice")
@@ -29,8 +45,10 @@ class TaskSlice(BaseModel):
     )
     dependencies: List[str] = Field(
         default_factory=list, 
-        description="IDs of slices this slice depends on (disjoint slices have empty dependencies)"
+        description="IDs of slices this slice depends on in the workload DAG"
     )
+    priority: int = Field(default=1, description="Execution priority (higher executes earlier in wave)")
+    timeout_seconds: int = Field(default=30, description="Max execution timeout in seconds")
 
 
 class WorkloadSpec(BaseModel):
@@ -69,6 +87,10 @@ class VerificationResult(BaseModel):
     stdout: str = ""
     stderr: str = ""
     failure_trace: Optional[str] = None
+    pruned_traceback: Optional[str] = None
+    ast_errors: List[str] = Field(default_factory=list)
+    security_violations: List[str] = Field(default_factory=list)
+    verification_phase: str = "pass"
     tokens_used: int = 0  # Crucial: 0 tokens if passed deterministically!
 
 
@@ -90,4 +112,9 @@ class SwarmMetrics(BaseModel):
     tasks_succeeded: int
     success_rate: float
     estimated_cost_usd: float = 0.0
+    cache_hits: int = 0
+    cache_tokens_saved: int = 0
+    execution_waves: int = 1
+    traceback_tokens_saved: int = 0
+    trace_events: List[Dict[str, Any]] = Field(default_factory=list)
     timestamp: float = Field(default_factory=time.time)

@@ -49,4 +49,6 @@ class BaseAgent:
             cached_tokens=res.cached_tokens,
             duration_seconds=duration,
         )
+        if res.cached_tokens > 0:
+            self.tracker.record_cache_hit(self.agent_id, res.cached_tokens)
         return res

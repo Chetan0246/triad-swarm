@@ -1,18 +1,23 @@
 """Triad Swarm: Minimal-Agent, Maximum-Speed, Minimum-Token Swarm Framework."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
+from triad.core.cache import PromptCacheManager
+from triad.core.contracts import ASTContractValidator, TracebackPruner, ContractViolation
+from triad.core.llm import BaseLLMProvider, CachedLLMProvider, MockLLMProvider, get_llm_provider
 from triad.core.models import (
-    InterfaceContract,
-    TaskSlice,
-    WorkloadSpec,
     ExecutionResult,
-    VerificationResult,
+    InterfaceContract,
     SwarmMetrics,
+    TaskSlice,
+    VerificationResult,
+    WorkloadSpec,
 )
-from triad.core.token_tracker import TokenTracker
-from triad.core.llm import get_llm_provider, BaseLLMProvider
+from triad.core.sandbox import IsolatedSandbox
+from triad.core.telemetry import SwarmTracer, TraceSpan
+from triad.core.token_tracker import TokenRecord, TokenTracker
 from triad.orchestrator.engine import TriadEngine
+from triad.orchestrator.scheduler import CircularDependencyError, DAGScheduler, MissingDependencyError
 
 __all__ = [
     "InterfaceContract",
@@ -22,7 +27,20 @@ __all__ = [
     "VerificationResult",
     "SwarmMetrics",
     "TokenTracker",
+    "TokenRecord",
+    "PromptCacheManager",
+    "SwarmTracer",
+    "TraceSpan",
+    "ASTContractValidator",
+    "TracebackPruner",
+    "ContractViolation",
+    "IsolatedSandbox",
+    "DAGScheduler",
+    "CircularDependencyError",
+    "MissingDependencyError",
     "get_llm_provider",
     "BaseLLMProvider",
+    "CachedLLMProvider",
+    "MockLLMProvider",
     "TriadEngine",
 ]

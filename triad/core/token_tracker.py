@@ -1,4 +1,4 @@
-"""Thread-safe, async-safe token accounting with cost modeling and audit trails."""
+"""Thread-safe, async-safe token accounting with cost modeling, cache hit tracking, and audit trails."""
 
 from __future__ import annotations
 
@@ -43,6 +43,9 @@ class TokenTracker:
 
         self._records: List[TokenRecord] = []
         self._zero_token_passes: int = 0
+        self._cache_hits: int = 0
+        self._cache_tokens_saved: int = 0
+        self._traceback_tokens_saved: int = 0
         self._lock = threading.Lock()
 
     def record_usage(
@@ -86,6 +89,17 @@ class TokenTracker:
         with self._lock:
             self._zero_token_passes += 1
 
+    def record_cache_hit(self, agent_id: str, tokens_saved: int) -> None:
+        """Record an exact prompt cache hit."""
+        with self._lock:
+            self._cache_hits += 1
+            self._cache_tokens_saved += tokens_saved
+
+    def record_traceback_pruning_savings(self, tokens_saved: int) -> None:
+        """Record tokens eliminated by the TracebackPruner."""
+        with self._lock:
+            self._traceback_tokens_saved += tokens_saved
+
     @property
     def total_prompt_tokens(self) -> int:
         with self._lock:
@@ -115,6 +129,21 @@ class TokenTracker:
     def zero_token_events(self) -> int:
         with self._lock:
             return self._zero_token_passes
+
+    @property
+    def cache_hits(self) -> int:
+        with self._lock:
+            return self._cache_hits
+
+    @property
+    def cache_tokens_saved(self) -> int:
+        with self._lock:
+            return self._cache_tokens_saved
+
+    @property
+    def traceback_tokens_saved(self) -> int:
+        with self._lock:
+            return self._traceback_tokens_saved
 
     def get_summary_by_phase(self) -> Dict[str, Dict[str, float]]:
         """Group usage by execution phase."""
@@ -156,7 +185,7 @@ class TokenTracker:
         return summary
 
     def generate_markdown_report(self) -> str:
-        """Format token metrics into a clean Markdown table."""
+        """Format token metrics into a clean Markdown table with cache and pruning stats."""
         phase_stats = self.get_summary_by_phase()
         lines = [
             "### 📊 Triad Swarm Token Economics Report",
@@ -180,4 +209,14 @@ class TokenTracker:
             f"**{self.total_prompt_tokens:,}** | **{self.total_completion_tokens:,}** | "
             f"**{self.total_tokens:,}** | **{self._zero_token_passes}** | **${self.total_cost_usd:.4f}** |"
         )
+
+        # Add advanced optimizations summary
+        if self._cache_hits > 0 or self._traceback_tokens_saved > 0:
+            lines.extend([
+                "",
+                "#### ⚡ Efficiency Gains",
+                f"- **Exact Prompt Cache Hits:** `{self._cache_hits}` hits ({self._cache_tokens_saved:,} tokens saved)",
+                f"- **Traceback Pruning Savings:** `{self._traceback_tokens_saved:,}` tokens eliminated from retry prompts",
+            ])
+
         return "\n".join(lines)
