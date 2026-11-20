@@ -1,0 +1,11 @@
+{
+  "name": "High-Throughput Time-Series Metrics Pipeline",
+  "description": "A production-grade Python package for ingesting time-series telemetry events, calculating rolling statistical windows (p50, p95, p99, mean), evaluating threshold-based alert triggers, and formatting dashboard JSON payloads.",
+  "acceptance_criteria": [
+    "Module `telemetry/storage.py` providing an InMemoryRingBuffer with append and range query",
+    "Module `telemetry/statistics.py` calculating percentile, mean, and standard deviation over windows",
+    "Module `telemetry/alerts.py` evaluating AlertRule conditions against recent metric windows",
+    "Module `telemetry/exporter.py` generating JSON payload summaries ready for dashboard consumers"
+  ],
+  "initial_files": {}
+}
