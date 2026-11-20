@@ -2,12 +2,12 @@
 
 > **A minimal-agent, maximum-throughput, token-optimal multi-agent swarm framework for software engineering.**
 
-[![CI](https://github.com/chetan/triad-swarm/actions/workflows/ci.yml/badge.svg)](#)
+[![CI](https://github.com/Chetan0246/triad-swarm/actions/workflows/ci.yml/badge.svg)](https://github.com/Chetan0246/triad-swarm/actions)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests Passing](https://img.shields.io/badge/tests-38%20passed-brightgreen.svg)](#)
-[![Token Savings](https://img.shields.io/badge/token%20savings-64.5%25-brightgreen.svg)](#)
-[![Verification Cost](https://img.shields.io/badge/verification%20tokens-0%20tokens-cyan.svg)](#)
+[![Tests Passing](https://img.shields.io/badge/tests-38%20passed-brightgreen.svg)](https://github.com/Chetan0246/triad-swarm/actions)
+[![Token Savings](https://img.shields.io/badge/token%20savings-64.5%25-brightgreen.svg)](#-empirical-benchmark-results)
+[![Verification Cost](https://img.shields.io/badge/verification%20tokens-0%20tokens-cyan.svg)](#-the-core-philosophy-why-most-swarms-fail)
 
 [**Read Full Technical Research Whitepaper**](docs/research_whitepaper.md) • [**Launch Interactive Visualizer**](examples/visualizer/index.html) • [**Run Benchmarks**](#-empirical-benchmark-results)
 
