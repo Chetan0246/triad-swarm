@@ -1,7 +1,6 @@
 """Tests for Polyglot Verification Gates (TypeScript/JavaScript)."""
 
-import pytest
-from triad.agents.polyglot import PolyglotTracebackPruner, PolyglotVerifier
+from triad.agents.polyglot import PolyglotTracebackPruner
 from triad.agents.verifier import DeterministicVerifier
 from triad.core.models import InterfaceContract, TaskSlice
 from triad.core.sandbox import IsolatedSandbox

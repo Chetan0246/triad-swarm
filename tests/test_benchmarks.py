@@ -1,4 +1,5 @@
 import pytest
+
 from examples.benchmark_comparison import run_rigorous_benchmark
 from examples.demo_workload import main as run_demo_main
 

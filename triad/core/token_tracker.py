@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import threading
 from typing import Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 

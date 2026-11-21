@@ -1,6 +1,5 @@
 """Tests for Asymmetric Model Router and OpenAI-compatible provider."""
 
-import pytest
 from triad.core.llm import MockLLMProvider, OpenAICompatibleProvider
 from triad.core.router import ModelRouter, parse_model_spec
 

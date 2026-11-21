@@ -1,9 +1,10 @@
 import json
+
 import pytest
+
 from triad.core.llm import MockLLMProvider
 from triad.core.models import WorkloadSpec
 from triad.orchestrator.engine import TriadEngine
-from triad.orchestrator.naive_engine import NaiveBaselineEngine
 
 
 @pytest.mark.asyncio

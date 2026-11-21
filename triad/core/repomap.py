@@ -11,8 +11,7 @@ import ast
 import os
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
-
+from typing import List, Set, Tuple
 
 DEFAULT_IGNORED_DIRS: Set[str] = {
     ".git",
@@ -146,6 +145,7 @@ class RepoMapGenerator:
         max_chars = self.max_tokens * 4
         output_lines = ["### 🗺️ Project Repository AST Map"]
         current_chars = len(output_lines[0])
+        files_included = 0
 
         for rel_path, sigs in file_maps:
             entry_header = f"\n📁 `{rel_path}`:"
@@ -153,11 +153,13 @@ class RepoMapGenerator:
             entry_total = entry_header + entry_body
 
             if current_chars + len(entry_total) > max_chars:
-                output_lines.append(f"\n[... {len(file_maps) - len(output_lines)} additional modules truncated for token budget ...]")
+                remaining = len(file_maps) - files_included
+                output_lines.append(f"\n[... {remaining} additional modules truncated for token budget ...]")
                 break
 
             output_lines.append(entry_total)
             current_chars += len(entry_total)
+            files_included += 1
 
         if len(output_lines) <= 1:
             return "### 🗺️ Project Repository AST Map\n*(No public classes or exported signatures detected)*"

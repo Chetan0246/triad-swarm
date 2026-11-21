@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-from typing import Optional
 from triad.core.contracts import ASTContractValidator, TracebackPruner
 from triad.core.models import TaskSlice, VerificationResult
 from triad.core.sandbox import IsolatedSandbox

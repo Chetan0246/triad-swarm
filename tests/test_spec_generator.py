@@ -1,6 +1,7 @@
 """Tests for Spec Generator Agent (triad new)."""
 
 import pytest
+
 from triad.agents.spec_generator import SpecGeneratorAgent
 from triad.core.llm import MockLLMProvider
 from triad.core.models import WorkloadSpec

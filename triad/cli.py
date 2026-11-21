@@ -16,11 +16,11 @@ from rich.table import Table
 from triad import __version__
 from triad.agents.spec_generator import SpecGeneratorAgent
 from triad.core.contracts import ASTContractValidator
-from triad.core.llm import get_llm_provider, MockLLMProvider, populate_mock_telemetry_defaults
+from triad.core.llm import MockLLMProvider, get_llm_provider, populate_mock_telemetry_defaults
 from triad.core.models import InterfaceContract, WorkloadSpec
 from triad.core.repomap import RepoMapGenerator
 from triad.core.router import ModelRouter
-from triad.core.web import FreeWebEngine, TinyFishClient
+from triad.core.web import TinyFishClient
 from triad.orchestrator.engine import TriadEngine
 from triad.orchestrator.naive_engine import NaiveBaselineEngine
 from triad.orchestrator.scheduler import DAGScheduler
@@ -56,7 +56,7 @@ async def run_workload_cmd(
     spec = WorkloadSpec(**data)
 
     console.print(f"🚀 [bold]Starting workload:[/bold] [yellow]{spec.name}[/yellow]")
-    
+
     # Asymmetric Router Setup
     router = ModelRouter(
         architect_spec=architect_model or provider_name,
@@ -169,7 +169,7 @@ async def new_feature_cmd(
         console.print(f"✔ [cyan]Saved workload specification to:[/cyan] [bold]{out_spec_path}[/bold]")
 
     if run_swarm:
-        console.print(f"\n🚀 [bold]Dispatching Triad Swarm to build & verify code...[/bold]")
+        console.print("\n🚀 [bold]Dispatching Triad Swarm to build & verify code...[/bold]")
         engine = TriadEngine(
             router=router,
             max_concurrency=concurrency,
@@ -289,7 +289,7 @@ def verify_file_cmd(target_file: str, contract_path: str) -> None:
 
 async def run_benchmark_cmd(slices_count: int, provider_name: str) -> None:
     render_banner()
-    console.print(f"🔬 [bold yellow]Running Head-to-Head Benchmark:[/bold yellow] [bold cyan]Triad Swarm[/bold cyan] vs [bold red]Monolithic Naive Swarm[/bold red]\n")
+    console.print("🔬 [bold yellow]Running Head-to-Head Benchmark:[/bold yellow] [bold cyan]Triad Swarm[/bold cyan] vs [bold red]Monolithic Naive Swarm[/bold red]\n")
 
     spec = WorkloadSpec(
         name="Telemetry & Analytics Processing Engine",

@@ -8,9 +8,9 @@ import re
 import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
 
 import httpx
+from pydantic import BaseModel
 
 
 class LLMResponse(BaseModel):
@@ -113,7 +113,7 @@ class MockLLMProvider(BaseLLMProvider):
                     m = re.search(r"Target Files:\s*\[['\"]([^'\"]+)['\"]", prompt)
                     if m:
                         target_file = m.group(1)
-                
+
                 # Check exported symbols
                 code_lines = []
                 if "execute_process" in prompt:
@@ -122,7 +122,7 @@ class MockLLMProvider(BaseLLMProvider):
                     code_lines.append("def handle_event(payload: dict) -> dict:\n    return {'status': 'ok', 'data': payload}\n")
                 else:
                     code_lines.append(f"# Auto-generated implementation for {target_file}\ndef default_handler():\n    return True\n")
-                
+
                 matched_content = json.dumps({
                     "files": {target_file: "\n".join(code_lines)},
                     "summary": f"Generated default implementation for {target_file}"
@@ -264,7 +264,10 @@ class OpenAIProvider(BaseLLMProvider):
                 raise RuntimeError(f"OpenAI API error ({resp.status_code}): {resp.text}")
 
             data = resp.json()
-            content_text = data["choices"][0]["message"]["content"]
+            choices = data.get("choices", [])
+            if not choices:
+                raise RuntimeError(f"OpenAI API returned empty choices: {data}")
+            content_text = choices[0].get("message", {}).get("content") or ""
             usage = data.get("usage", {})
             prompt_tokens = usage.get("prompt_tokens", 0)
             completion_tokens = usage.get("completion_tokens", 0)
@@ -341,7 +344,10 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                 raise RuntimeError(f"OpenAI-compatible endpoint error ({resp.status_code}): {resp.text}")
 
             data = resp.json()
-            content_text = data["choices"][0]["message"]["content"]
+            choices = data.get("choices", [])
+            if not choices:
+                raise RuntimeError(f"OpenAI API returned empty choices: {data}")
+            content_text = choices[0].get("message", {}).get("content") or ""
             usage = data.get("usage", {})
             prompt_tokens = usage.get("prompt_tokens", max(1, int(len(prompt) / 4)))
             completion_tokens = usage.get("completion_tokens", max(1, int(len(content_text) / 4)))

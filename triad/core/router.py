@@ -8,7 +8,8 @@ Enables economic and capability arbitrage across agent tiers:
 from __future__ import annotations
 
 import os
-from typing import Any, Optional, Tuple
+from typing import Optional, Tuple
+
 from triad.core.cache import PromptCacheManager
 from triad.core.llm import (
     BaseLLMProvider,
@@ -29,11 +30,11 @@ def parse_model_spec(spec: str) -> Tuple[str, Optional[str]]:
     - 'ollama/qwen2.5-coder:7b' -> ('ollama', 'qwen2.5-coder:7b')
     - 'mock' -> ('mock', None)
     """
-    s = spec.strip().lower()
+    s = spec.strip()
     if "/" in s:
         provider_part, model_part = s.split("/", 1)
-        return provider_part.strip(), model_part.strip()
-    return s, None
+        return provider_part.strip().lower(), model_part.strip()
+    return s.lower(), None
 
 
 class ModelRouter:

@@ -1,5 +1,5 @@
-import pytest
 import concurrent.futures
+
 from triad.core.token_tracker import TokenTracker
 
 
@@ -18,6 +18,7 @@ def test_token_tracker_basic():
         cached_tokens=0,
     )
 
+    assert rec.total_tokens == 1200
     assert tracker.total_prompt_tokens == 1000
     assert tracker.total_completion_tokens == 200
     assert tracker.total_tokens == 1200

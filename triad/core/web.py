@@ -7,14 +7,13 @@ and architects to look up API docs, library references, and specs with bounded t
 from __future__ import annotations
 
 import html
-import json
 import os
 import re
 import urllib.parse
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from typing import List, Optional
 
 import httpx
+from pydantic import BaseModel, Field
 
 
 class SearchResult(BaseModel):
@@ -58,11 +57,11 @@ class FreeWebEngine:
         text = re.sub(r"<nav[\s\S]*?</nav>", "", text, flags=re.IGNORECASE)
         text = re.sub(r"<footer[\s\S]*?</footer>", "", text, flags=re.IGNORECASE)
         text = re.sub(r"<!--[\s\S]*?-->", "", text)
-        
+
         # Replace headings
         for i in range(1, 7):
             text = re.sub(rf"<h{i}[^>]*>([\s\S]*?)</h{i}>", rf"\n\n{'#' * i} \1\n", text, flags=re.IGNORECASE)
-        
+
         # Replace links
         text = re.sub(r'<a\s+[^>]*href=["\']([^"\']+)["\'][^>]*>([\s\S]*?)</a>', r"[\2](\1)", text, flags=re.IGNORECASE)
         # Replace paragraphs and breaks
@@ -70,7 +69,7 @@ class FreeWebEngine:
         text = re.sub(r"</p>", "\n\n", text, flags=re.IGNORECASE)
         text = re.sub(r"</li>", "\n", text, flags=re.IGNORECASE)
         text = re.sub(r"<li[^>]*>", "• ", text, flags=re.IGNORECASE)
-        
+
         # Strip all remaining HTML tags
         text = re.sub(r"<[^>]+>", "", text)
         text = html.unescape(text)
@@ -145,9 +144,17 @@ class FreeWebEngine:
 
         try:
             resp = await client.get(url, headers=headers)
+            if resp.status_code >= 400:
+                return WebFetchResponse(
+                    url=url,
+                    title=f"HTTP {resp.status_code}",
+                    content=f"Error fetching {url}: HTTP {resp.status_code} {resp.reason_phrase}",
+                    provider="free_httpx_scraper",
+                    truncated=False,
+                )
             content_type = resp.headers.get("content-type", "")
             raw_text = resp.text
-            
+
             title = ""
             title_match = re.search(r"<title[^>]*>([\s\S]*?)</title>", raw_text, re.IGNORECASE)
             if title_match:

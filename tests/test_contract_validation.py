@@ -1,4 +1,3 @@
-import pytest
 from triad.core.contracts import ASTContractValidator
 from triad.core.models import InterfaceContract
 

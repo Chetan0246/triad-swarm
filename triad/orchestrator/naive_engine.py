@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Dict, List, Optional
+from typing import List, Optional
+
 from triad.core.llm import BaseLLMProvider, get_llm_provider
 from triad.core.models import SwarmMetrics, TaskSlice, WorkloadSpec
 from triad.core.sandbox import IsolatedSandbox
@@ -46,7 +47,7 @@ class NaiveBaselineEngine:
 
             # Monolithic context accumulates all prior interactions
             prompt = (
-                f"Previous Context:\n" + "\n---\n".join(chat_history) + "\n\n"
+                "Previous Context:\n" + "\n---\n".join(chat_history) + "\n\n"
                 f"Now implement Task {idx+1}: {task_slice.title}\n"
                 f"Description: {task_slice.description}\n"
                 f"Target Files: {task_slice.target_files}\n"

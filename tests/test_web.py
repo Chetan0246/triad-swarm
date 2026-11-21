@@ -1,8 +1,8 @@
 """Tests for TinyFish Web Search and Fetch module with free service fallbacks."""
 
 import pytest
-import httpx
-from triad.core.web import FreeWebEngine, SearchResult, TinyFishClient, WebFetchResponse, WebSearchResponse
+
+from triad.core.web import FreeWebEngine, TinyFishClient, WebFetchResponse, WebSearchResponse
 
 
 def test_free_web_engine_html_stripping():

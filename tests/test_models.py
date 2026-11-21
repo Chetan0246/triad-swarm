@@ -1,11 +1,7 @@
-import pytest
 from triad.core.models import (
     InterfaceContract,
-    TaskSlice,
-    WorkloadSpec,
-    ExecutionResult,
-    VerificationResult,
     SwarmMetrics,
+    TaskSlice,
 )
 
 

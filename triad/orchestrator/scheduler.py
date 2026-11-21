@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import collections
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List
+
 from triad.core.models import TaskSlice
 
 
@@ -136,7 +137,6 @@ class DAGScheduler:
         """Render the execution waves in a human-readable ASCII layout."""
         lines = ["=== Triad Swarm Execution Waves (DAG Topology) ==="]
         for idx, wave in enumerate(self.waves):
-            slice_names = [f"{s.slice_id} ({s.title})" for s in wave]
             lines.append(f"Wave {idx + 1} [{len(wave)} parallel tasks]:")
             for s in wave:
                 deps = f" -> depends on {s.dependencies}" if s.dependencies else " (Root / Independent)"

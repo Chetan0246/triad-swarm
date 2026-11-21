@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from typing import Any, Dict, List, Literal, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -26,7 +27,7 @@ class InterfaceContract(BaseModel):
     )
     contract_schema: Optional[Dict[str, Any]] = Field(default=None, description="Optional JSON Schema / type contract")
     invariants: List[str] = Field(default_factory=list, description="Logical invariants that must hold true")
-    language: Literal["python", "typescript", "json_schema"] = Field(
+    language: Literal["python", "typescript", "javascript", "json_schema"] = Field(
         default="python",
         description="Target language for contract verification"
     )
@@ -40,11 +41,11 @@ class TaskSlice(BaseModel):
     target_files: List[str] = Field(default_factory=list, description="Files this slice is allowed to create or modify")
     contract: InterfaceContract = Field(description="Interface contract this slice must fulfill")
     acceptance_tests: Dict[str, str] = Field(
-        default_factory=dict, 
+        default_factory=dict,
         description="Path -> Test code content to deterministically verify fulfillment"
     )
     dependencies: List[str] = Field(
-        default_factory=list, 
+        default_factory=list,
         description="IDs of slices this slice depends on in the workload DAG"
     )
     priority: int = Field(default=1, description="Execution priority (higher executes earlier in wave)")
@@ -57,7 +58,7 @@ class WorkloadSpec(BaseModel):
     description: str
     acceptance_criteria: List[str] = Field(default_factory=list)
     initial_files: Dict[str, str] = Field(
-        default_factory=dict, 
+        default_factory=dict,
         description="Optional seed files or config files (e.g., pyproject.toml)"
     )
 

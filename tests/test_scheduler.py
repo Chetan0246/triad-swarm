@@ -1,4 +1,5 @@
 import pytest
+
 from triad.core.models import InterfaceContract, TaskSlice
 from triad.orchestrator.scheduler import CircularDependencyError, DAGScheduler, MissingDependencyError
 

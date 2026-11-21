@@ -33,7 +33,9 @@ class IsolatedSandbox:
     def resolve_path(self, relative_path: str) -> Path:
         """Resolve and validate that the target path does not escape sandbox root."""
         p = (self.root / relative_path).resolve()
-        if not str(p).startswith(str(self.root)):
+        try:
+            p.relative_to(self.root)
+        except ValueError:
             raise PermissionError(f"Access denied: path '{relative_path}' escapes sandbox boundary.")
         return p
 

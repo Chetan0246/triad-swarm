@@ -6,6 +6,7 @@ import json
 import re
 import time
 from typing import Dict, Optional
+
 from triad.agents.base import BaseAgent
 from triad.core.llm import BaseLLMProvider
 from triad.core.models import ExecutionResult, TaskSlice
@@ -124,7 +125,9 @@ class WorkerAgent(BaseAgent):
 
     def _parse_worker_files(self, content: str) -> Dict[str, str]:
         """Extract written files from LLM JSON response."""
-        clean = content.strip()
+        json_match = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", content)
+        clean = json_match.group(1).strip() if json_match else content.strip()
+
         if clean.startswith("```"):
             clean = re.sub(r"^```[a-zA-Z]*\n", "", clean)
             clean = re.sub(r"\n```$", "", clean)

@@ -5,7 +5,8 @@ from __future__ import annotations
 import ast
 import json
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
+
 from triad.core.models import InterfaceContract
 
 
@@ -139,14 +140,29 @@ class ASTContractValidator:
 
     @classmethod
     def _validate_typescript(cls, code_str: str, contract: InterfaceContract) -> Tuple[bool, List[str]]:
-        """Static zero-token validation for TypeScript / JavaScript exports."""
+        """Static zero-token validation for TypeScript / JavaScript exports and security."""
         errors: List[str] = []
 
-        # Find exported functions, classes, consts
+        # 1. Security check: Forbidden imports for JS/TS
+        for forbidden in contract.forbidden_imports:
+            # Matches import ... from 'mod' or require('mod')
+            pattern = rf"(?:from\s+[\"']{re.escape(forbidden)}(?:/[\w.-]+)?[\"']|require\s*\(\s*[\"']{re.escape(forbidden)}(?:/[\w.-]+)?[\"']\s*\))"
+            if re.search(pattern, code_str):
+                errors.append(f"Security violation: Forbidden module imported: '{forbidden}'")
+
+        # 2. Find exported functions, classes, interfaces, types, consts, vars
         exported_functions = set(re.findall(r"export\s+(?:async\s+)?function\s+([a-zA-Z0-9_$]+)", code_str))
         exported_classes = set(re.findall(r"export\s+class\s+([a-zA-Z0-9_$]+)", code_str))
-        exported_consts = set(re.findall(r"export\s+const\s+([a-zA-Z0-9_$]+)", code_str))
-        all_exports = exported_functions | exported_classes | exported_consts
+        exported_interfaces = set(re.findall(r"export\s+interface\s+([a-zA-Z0-9_$]+)", code_str))
+        exported_types = set(re.findall(r"export\s+type\s+([a-zA-Z0-9_$]+)", code_str))
+        exported_consts = set(re.findall(r"export\s+(?:const|let|var)\s+([a-zA-Z0-9_$]+)", code_str))
+        all_exports = (
+            exported_functions
+            | exported_classes
+            | exported_interfaces
+            | exported_types
+            | exported_consts
+        )
 
         # Also support export { a, b, c }
         for match in re.findall(r"export\s*\{([^}]+)\}", code_str):

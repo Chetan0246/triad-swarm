@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import time
-from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 from triad.agents.architect import ArchitectAgent
@@ -99,6 +97,7 @@ class TriadEngine:
         scheduler = DAGScheduler(slices)
         slice_events: Dict[str, asyncio.Event] = {s.slice_id: asyncio.Event() for s in slices}
         verified_sandboxes: Dict[str, IsolatedSandbox] = {}
+        all_sandboxes: List[IsolatedSandbox] = []
         failed_slices: Set[str] = set()
 
         # Step 3: Reactive Parallel Streaming Fan-Out
@@ -122,6 +121,9 @@ class TriadEngine:
                     upstream_sandboxes=[verified_sandboxes[d] for d in slice_item.dependencies if d in verified_sandboxes],
                 )
 
+                if sand is not None:
+                    all_sandboxes.append(sand)
+
                 if verif_res and verif_res.passed and sand:
                     verified_sandboxes[slice_item.slice_id] = sand
                 else:
@@ -129,36 +131,37 @@ class TriadEngine:
 
                 slice_events[slice_item.slice_id].set()
                 return exec_res, verif_res, sand, elapsed
-            except Exception as e:
+            except Exception:
                 failed_slices.add(slice_item.slice_id)
                 slice_events[slice_item.slice_id].set()
-                raise e
+                raise
 
         worker_tasks = [
             run_slice_task(slice_item, idx)
             for idx, slice_item in enumerate(slices)
         ]
 
-        # Slices run reactively as soon as their dependencies are ready
-        results = await asyncio.gather(*worker_tasks, return_exceptions=True)
+        try:
+            # Slices run reactively as soon as their dependencies are ready
+            results = await asyncio.gather(*worker_tasks, return_exceptions=True)
 
-        successful_slices = 0
-        cumulative_worker_time = 0.0
+            successful_slices = 0
+            cumulative_worker_time = 0.0
 
-        for idx, res in enumerate(results):
-            if isinstance(res, Exception) or res is None:
-                continue
-            exec_res, verif_res, sand, worker_elapsed = res
-            cumulative_worker_time += worker_elapsed
+            for _idx, res in enumerate(results):
+                if isinstance(res, Exception) or res is None:
+                    continue
+                _exec_res, verif_res, sand, worker_elapsed = res
+                cumulative_worker_time += worker_elapsed
 
-            if verif_res and verif_res.passed and sand:
-                successful_slices += 1
-                if self.output_dir:
-                    sand.sync_to(self.output_dir)
-
-        # Cleanup sandboxes
-        for sand in verified_sandboxes.values():
-            sand.close()
+                if verif_res and verif_res.passed and sand:
+                    successful_slices += 1
+                    if self.output_dir:
+                        sand.sync_to(self.output_dir)
+        finally:
+            # Ensure all sandboxes (verified or failed) are cleanly closed
+            for sand in all_sandboxes:
+                sand.close()
 
         total_wall_clock = time.perf_counter() - start_time
         speedup = (
@@ -234,7 +237,6 @@ class TriadEngine:
             )
 
             for attempt in range(1, self.max_healing_attempts + 1):
-                attempt_phase = "execution" if attempt == 1 else "healing"
                 exec_res = await worker.execute_slice(
                     task_slice=task_slice,
                     sandbox=sandbox,

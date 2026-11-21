@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import json
 import re
-from typing import List, Optional
+from typing import Optional
+
 from triad.agents.base import BaseAgent
 from triad.core.llm import BaseLLMProvider, MockLLMProvider
 from triad.core.models import WorkloadSpec

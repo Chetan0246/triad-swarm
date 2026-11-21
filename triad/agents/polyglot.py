@@ -6,10 +6,10 @@ syntax contracts and lightweight test runner invocation (Vitest, Jest, Node test
 
 from __future__ import annotations
 
-import re
 import shutil
-from typing import List, Tuple
-from triad.core.contracts import ASTContractValidator, TracebackPruner
+from typing import List
+
+from triad.core.contracts import ASTContractValidator
 from triad.core.models import TaskSlice, VerificationResult
 from triad.core.sandbox import IsolatedSandbox
 from triad.core.token_tracker import TokenTracker
@@ -33,14 +33,14 @@ class PolyglotTracebackPruner:
                 continue
             if any(m in line for m in ["FAIL", "Error:", "Expected:", "Received:", "assert", "AssertionError", "✕"]):
                 pruned.append(line)
-            elif pruned and (line.startswith(" ") or line.startswith(">")):
+            elif pruned and line.startswith((" ", ">")):
                 pruned.append(line)
 
             if len(pruned) >= max_lines:
                 break
 
         if not pruned:
-            pruned = [l for l in lines if "node_modules/" not in l][-min(len(lines), max_lines):]
+            pruned = [ln for ln in lines if "node_modules/" not in ln][-min(len(lines), max_lines):]
 
         return "\n".join(pruned[:max_lines])
 

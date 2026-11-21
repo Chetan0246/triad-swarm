@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import re
-from typing import List
+from typing import List, Optional
+
 from triad.agents.base import BaseAgent
 from triad.core.llm import BaseLLMProvider
 from triad.core.models import InterfaceContract, TaskSlice, WorkloadSpec
@@ -89,8 +90,9 @@ class ArchitectAgent(BaseAgent):
 
     def _parse_slices(self, content: str) -> List[TaskSlice]:
         """Safely extract and validate TaskSlice models from LLM JSON response."""
-        clean = content.strip()
-        # Handle markdown fenced code blocks if present
+        json_match = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", content)
+        clean = json_match.group(1).strip() if json_match else content.strip()
+
         if clean.startswith("```"):
             clean = re.sub(r"^```[a-zA-Z]*\n", "", clean)
             clean = re.sub(r"\n```$", "", clean)
@@ -107,8 +109,12 @@ class ArchitectAgent(BaseAgent):
                 module_path=contract_data.get("module_path", s.get("target_files", [""])[0]),
                 exported_symbols=contract_data.get("exported_symbols", []),
                 signatures=contract_data.get("signatures", {}),
+                type_hints=contract_data.get("type_hints", {}),
+                required_classes=contract_data.get("required_classes", {}),
+                forbidden_imports=contract_data.get("forbidden_imports", []),
                 contract_schema=contract_data.get("contract_schema", contract_data.get("schema_json")),
                 invariants=contract_data.get("invariants", []),
+                language=contract_data.get("language", "python"),
             )
             parsed.append(
                 TaskSlice(

@@ -1,8 +1,10 @@
 import json
+
 import pytest
+
 from triad.agents.architect import ArchitectAgent
-from triad.agents.worker import WorkerAgent
 from triad.agents.verifier import DeterministicVerifier
+from triad.agents.worker import WorkerAgent
 from triad.core.llm import MockLLMProvider
 from triad.core.models import InterfaceContract, TaskSlice, WorkloadSpec
 from triad.core.sandbox import IsolatedSandbox
