@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Triad Swarm - Product Hunt Gallery Assets</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #0b0f19;
+      color: #f1f5f9;
+      font-family: 'Inter', sans-serif;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 60px;
+    }
+    .header-nav {
+      max-width: 1280px;
+      width: 100%;
+      text-align: center;
+      margin-bottom: -20px;
+    }
+    .header-nav h1 {
+      font-size: 28px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #38bdf8, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    .header-nav p {
+      color: #94a3b8;
+      font-size: 14px;
+    }
+
+    /* 16:9 Slide Canvas (1280 x 720) */
+    .ph-slide {
+      width: 1280px;
+      height: 720px;
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(56, 189, 248, 0.2);
+    }
+    .slide-label {
+      position: absolute;
+      top: 15px;
+      right: 25px;
+      font-family: 'Fira Code', monospace;
+      font-size: 12px;
+      color: #64748b;
+      background: rgba(15, 23, 42, 0.8);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      z-index: 10;
+    }
+
+    /* Background Gradients */
+    .glow-cyan {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.15) 0%, rgba(15, 23, 42, 0) 70%);
+      top: -150px;
+      left: -100px;
+      pointer-events: none;
+    }
+    .glow-purple {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(192, 132, 252, 0.12) 0%, rgba(15, 23, 42, 0) 70%);
+      bottom: -150px;
+      right: -100px;
+      pointer-events: none;
+    }
+
+    /* Slide 1: Hero Thumbnail */
+    .hero-content {
+      padding: 70px 80px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      z-index: 2;
+    }
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 8px 18px;
+      border-radius: 9999px;
+      color: #38bdf8;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      width: fit-content;
+    }
+    .hero-title {
+      font-size: 58px;
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      margin-top: 20px;
+    }
+    .hero-title span.grad {
+      background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-desc {
+      font-size: 22px;
+      color: #94a3b8;
+      max-width: 880px;
+      line-height: 1.45;
+      margin-top: 18px;
+    }
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin-top: 30px;
+    }
+    .stat-card {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+    }
+    .stat-val {
+      font-size: 32px;
+      font-weight: 800;
+      font-family: 'Fira Code', monospace;
+      color: #38bdf8;
+    }
+    .stat-val.green { color: #34d399; }
+    .stat-val.purple { color: #c084fc; }
+    .stat-lbl {
+      color: #94a3b8;
+      font-size: 13px;
+      font-weight: 500;
+      margin-top: 6px;
+    }
+
+    /* Common Card Headers */
+    .slide-header {
+      padding: 40px 60px 20px 60px;
+      z-index: 2;
+    }
+    .slide-header h2 {
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .slide-header p {
+      color: #94a3b8;
+      font-size: 16px;
+      margin-top: 6px;
+    }
+
+    /* Slide 2: Architecture Split */
+    .arch-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      padding: 10px 60px 40px 60px;
+      flex: 1;
+      z-index: 2;
+    }
+    .arch-card {
+      border-radius: 16px;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .arch-card.bad {
+      background: rgba(239, 68, 68, 0.05);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+    }
+    .arch-card.good {
+      background: rgba(16, 185, 129, 0.06);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.1);
+    }
+    .arch-card h3 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .arch-card.bad h3 { color: #f87171; }
+    .arch-card.good h3 { color: #34d399; }
+    .arch-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .arch-list li {
+      font-size: 14px;
+      line-height: 1.45;
+      color: #cbd5e1;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .code-box {
+      background: #020617;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 16px;
+      font-family: 'Fira Code', monospace;
+      font-size: 12px;
+      color: #e2e8f0;
+      margin-top: 15px;
+      line-height: 1.5;
+    }
+
+    /* Slide 3: Benchmark Table */
+    .table-container {
+      padding: 10px 60px 40px 60px;
+      flex: 1;
+      z-index: 2;
+    }
+    .bench-table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .bench-table th, .bench-table td {
+      padding: 18px 24px;
+      text-align: left;
+      font-size: 15px;
+    }
+    .bench-table th {
+      background: #1e293b;
+      color: #94a3b8;
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .bench-table tr {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .bench-table tr:last-child { border-bottom: none; }
+    .tag-delta {
+      display: inline-block;
+      padding: 4px 10px;
+      background: rgba(52, 211, 153, 0.15);
+      border: 1px solid rgba(52, 211, 153, 0.4);
+      color: #34d399;
+      border-radius: 6px;
+      font-weight: 700;
+      font-family: 'Fira Code', monospace;
+      font-size: 13px;
+    }
+
+    /* Slide 4: Production & Observability */
+    .prod-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      padding: 10px 60px 40px 60px;
+      flex: 1;
+      z-index: 2;
+    }
+    .prod-box {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .prod-box h4 {
+      font-size: 18px;
+      color: #38bdf8;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .prod-box p {
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.45;
+    }
+
+    /* Slide 5: Polyglot & Full-Stack */
+    .poly-stack {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 24px;
+      padding: 10px 60px 40px 60px;
+      flex: 1;
+      z-index: 2;
+    }
+    .tier-box {
+      background: #0b1329;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 14px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .tier-num {
+      font-family: 'Fira Code', monospace;
+      font-size: 12px;
+      color: #38bdf8;
+      font-weight: 700;
+    }
+    .tier-box h4 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+    .tier-box p {
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.45;
+    }
+
+    /* Slide 6: Prompt-to-Code */
+    .cli-demo {
+      padding: 10px 60px 40px 60px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      z-index: 2;
+    }
+    .terminal-window {
+      background: #020617;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    }
+    .term-bar {
+      background: #0f172a;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .term-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .term-dot.r { background: #ef4444; }
+    .term-dot.y { background: #f59e0b; }
+    .term-dot.g { background: #10b981; }
+    .term-title {
+      font-family: 'Fira Code', monospace;
+      font-size: 12px;
+      color: #64748b;
+      margin-left: 10px;
+    }
+    .term-body {
+      padding: 24px;
+      font-family: 'Fira Code', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #cbd5e1;
+    }
+    .term-body .c-green { color: #34d399; }
+    .term-body .c-cyan { color: #38bdf8; }
+    .term-body .c-dim { color: #64748b; }
+    .term-body .c-yellow { color: #fbbf24; }
+  </style>
+</head>
+<body>
+
+  <div class="header-nav">
+    <h1>Product Hunt Gallery Assets (1280 x 720)</h1>
+    <p>Capture screenshots of each slide below to upload directly to your Product Hunt listing gallery.</p>
+  </div>
+
+  <!-- SLIDE 1: HERO THUMBNAIL -->
+  <div class="ph-slide" id="slide-1">
+    <div class="glow-cyan"></div>
+    <div class="glow-purple"></div>
+    <div class="slide-label">SLIDE 1: HERO COVER</div>
+    <div class="hero-content">
+      <div>
+        <div class="badge-pill">⚡ Open-Source Multi-Agent Framework • MIT License</div>
+        <h1 class="hero-title">Triad Swarm<br><span class="grad">Minimal Agents. Zero Waste.</span></h1>
+        <p class="hero-desc">
+          Build full-stack software and tools with autonomous AI swarms that cut token consumption by 64.5% using 0-token deterministic compiler verification.
+        </p>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card">
+          <div class="stat-val green">64.5%</div>
+          <div class="stat-lbl">Token Cost Reduction</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val">0 TOKENS</div>
+          <div class="stat-lbl">Compiler Verification</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val purple">4.1x FASTER</div>
+          <div class="stat-lbl">Topological DAG Waves</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val">&lt; 1ms</div>
+          <div class="stat-lbl">Multi-Tier Prompt Cache</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 2: THE PROBLEM VS TRIAD -->
+  <div class="ph-slide" id="slide-2">
+    <div class="glow-cyan"></div>
+    <div class="slide-label">SLIDE 2: ARCHITECTURE COMPARISON</div>
+    <div class="slide-header">
+      <h2>Why Traditional Multi-Agent Swarms Fail</h2>
+      <p>How Triad Swarm eliminates chat bloat, hallucinated reviews, and quadratic context inflation.</p>
+    </div>
+    <div class="arch-split">
+      <div class="arch-card bad">
+        <div>
+          <h3>❌ Traditional Monolithic Swarm</h3>
+          <ul class="arch-list">
+            <li>• <b>8–12 Personas:</b> PM, Architect, Coder, Critic, QA, SRE agents talking in circles.</li>
+            <li>• <b>O(N²) Chat Accumulation:</b> Every agent re-reads previous turns; tokens explode exponentially.</li>
+            <li>• <b>Hallucinated LLM Reviewers:</b> Prompts another LLM to review code; costs 2,000+ tokens and misses runtime syntax bugs.</li>
+            <li>• <b>Serial Turn-Taking:</b> Sequential execution destroys parallel performance.</li>
+          </ul>
+        </div>
+        <div class="code-box">
+          [Global Chat Log: 12,000+ Tokens]<br>
+          PM ➔ Architect ➔ Coder ➔ Critic (2,400 tokens) ➔ SRE
+        </div>
+      </div>
+
+      <div class="arch-card good">
+        <div>
+          <h3>✅ Triad Swarm Architecture</h3>
+          <ul class="arch-list">
+            <li>• <b>Minimal 2-Agent Hierarchy:</b> 1 Architect + k homogeneous parallel Workers.</li>
+            <li>• <b>O(1) Context Isolation:</b> Workers see only their slice contract (~600 tokens).</li>
+            <li>• <b>0-Token Deterministic Gate:</b> Verifies AST syntax, schemas, and tests on CPU for $0.</li>
+            <li>• <b>Reactive Topological Waves:</b> Independent tasks execute concurrently with streaming events.</li>
+          </ul>
+        </div>
+        <div class="code-box">
+          [Isolated Sandboxes: ~600 Tokens each]<br>
+          Architect ➔ [Worker 1 | Worker 2 | Worker 3] ➔ 0-Token Gate
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 3: BENCHMARK SCORECARD -->
+  <div class="ph-slide" id="slide-3">
+    <div class="glow-purple"></div>
+    <div class="slide-label">SLIDE 3: EMPIRICAL BENCHMARKS</div>
+    <div class="slide-header">
+      <h2>Empirical Benchmark Scorecard</h2>
+      <p>Verified on identical 4-slice full engineering workloads running head-to-head.</p>
+    </div>
+    <div class="table-container">
+      <table class="bench-table">
+        <thead>
+          <tr>
+            <th>Engineering Dimension</th>
+            <th>Traditional Swarm</th>
+            <th>Triad Swarm</th>
+            <th>Advantage</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Total Tokens Consumed</b></td>
+            <td>8,460 tokens</td>
+            <td style="color:#38bdf8; font-weight:700;">3,001 tokens</td>
+            <td><span class="tag-delta">-64.5% Tokens</span></td>
+          </tr>
+          <tr>
+            <td><b>Code Verification Cost</b></td>
+            <td>2,400+ tokens (LLM Critic)</td>
+            <td style="color:#34d399; font-weight:700;">0 tokens (CPU AST + PyTest)</td>
+            <td><span class="tag-delta">100% Free Reviews</span></td>
+          </tr>
+          <tr>
+            <td><b>Wall-Clock Execution Time</b></td>
+            <td>8.42 seconds (Sequential)</td>
+            <td style="color:#c084fc; font-weight:700;">2.05 seconds (Parallel)</td>
+            <td><span class="tag-delta">4.1x Faster</span></td>
+          </tr>
+          <tr>
+            <td><b>Self-Healing Retry Tokens</b></td>
+            <td>1,800+ tokens (raw stdout)</td>
+            <td style="color:#38bdf8; font-weight:700;">~350 tokens (Pruned AST trace)</td>
+            <td><span class="tag-delta">-75% Retry Overhead</span></td>
+          </tr>
+          <tr>
+            <td><b>Local Model Execution Cost</b></td>
+            <td>Not viable (context limits)</td>
+            <td style="color:#34d399; font-weight:700;">$0.00 (Ollama / vLLM Workers)</td>
+            <td><span class="tag-delta">100% Local Capable</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SLIDE 4: PRODUCTION & CLOUD STACK -->
+  <div class="ph-slide" id="slide-4">
+    <div class="glow-cyan"></div>
+    <div class="slide-label">SLIDE 4: ENTERPRISE DEPLOYMENT</div>
+    <div class="slide-header">
+      <h2>Built for Enterprise Production Deployment</h2>
+      <p>Run Triad Swarm as a high-concurrency daemon with native observability and security sandboxing.</p>
+    </div>
+    <div class="prod-grid">
+      <div class="prod-box">
+        <h4>⚡ FastAPI & SSE Daemon</h4>
+        <p>Run <code>triad serve</code> for async job submission, Server-Sent Events (SSE) live log streaming, and Kubernetes <code>/healthz</code> & <code>/readyz</code> probes.</p>
+      </div>
+      <div class="prod-box">
+        <h4>📊 Native Prometheus Metrics</h4>
+        <p>Zero-dependency <code>/metrics</code> endpoint exporting real-time token arbitrage, 0-token verifications, cache hit ratios, and duration percentiles.</p>
+      </div>
+      <div class="prod-box">
+        <h4>🛡️ Hardened POSIX Limits</h4>
+        <p>Sandboxes enforce <code>RLIMIT_AS</code> memory caps (protecting against OOM bombs), CPU time limits, and configurable network egress isolation.</p>
+      </div>
+      <div class="prod-box">
+        <h4>☸️ Kubernetes Production Suite</h4>
+        <p>Pre-configured manifests in <code>k8s/</code>: Non-root security contexts (UID 10001), HPA autoscaling (2-10 pods), and NGINX Ingress with TLS.</p>
+      </div>
+      <div class="prod-box">
+        <h4>📈 Pre-Built Grafana Dashboards</h4>
+        <p>Deploy <code>docker-compose.prod.yml</code> to get Triad Server + Prometheus + Grafana pre-provisioned with throughput and token savings panels.</p>
+      </div>
+      <div class="prod-box">
+        <h4>🪵 Structured JSON Logging</h4>
+        <p>Single-line JSON logs with correlation IDs (<code>trace_id</code>, <code>job_id</code>, <code>slice_id</code>) ready for Datadog, Grafana Loki, AWS CloudWatch, and Vector.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 5: POLYGLOT & FULL-STACK -->
+  <div class="ph-slide" id="slide-5">
+    <div class="glow-purple"></div>
+    <div class="slide-label">SLIDE 5: FULL-STACK CAPABILITIES</div>
+    <div class="slide-header">
+      <h2>General-Purpose & Full-Stack Polyglot</h2>
+      <p>Not just scripts: build databases, REST APIs, interactive frontends, and automated scrapers.</p>
+    </div>
+    <div class="poly-stack">
+      <div class="tier-box">
+        <div class="tier-num">TIER 1 • STORAGE</div>
+        <h4>Database Models</h4>
+        <p>SQLite, PostgreSQL, and SQLAlchemy ORM models with schema enforcement, primary keys, and auto-timestamps.</p>
+        <div class="code-box">models.py & migrations</div>
+      </div>
+      <div class="tier-box">
+        <div class="tier-num">TIER 2 • BACKEND</div>
+        <h4>FastAPI REST APIs</h4>
+        <p>High-speed REST and GraphQL endpoints with Pydantic validation, CORS middleware, and CRUD operations.</p>
+        <div class="code-box">routes.py & test_api.py</div>
+      </div>
+      <div class="tier-box">
+        <div class="tier-num">TIER 3 • FRONTEND</div>
+        <h4>Tailwind CSS & Web UI</h4>
+        <p>Modern responsive user dashboards verified with DOM tree checkers, tag balancing, and client-side logic.</p>
+        <div class="code-box">index.html & app.js</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 6: PROMPT-TO-CODE -->
+  <div class="ph-slide" id="slide-6">
+    <div class="glow-cyan"></div>
+    <div class="slide-label">SLIDE 6: ZERO-JSON WORKFLOW</div>
+    <div class="slide-header">
+      <h2>Zero-JSON Prompt-to-Code Workflow</h2>
+      <p>Pass plain natural language prompts; Triad Swarm handles contract decomposition and verified delivery.</p>
+    </div>
+    <div class="cli-demo">
+      <div class="terminal-window">
+        <div class="term-bar">
+          <div class="term-dot r"></div>
+          <div class="term-dot y"></div>
+          <div class="term-dot g"></div>
+          <div class="term-title">bash - triad new</div>
+        </div>
+        <div class="term-body">
+          $ <span class="c-cyan">triad new</span> <span class="c-yellow">"Build an async in-memory priority task queue in Python with concurrency limits and timeouts"</span> <span class="c-green">--run</span><br><br>
+          <span class="c-dim">── Synthesizing Formal Interface Contracts via Architect (River DeepSeek V4.1) ──</span><br>
+          ✔ Workload decomposed into 2 topological DAG slices<br>
+          ✔ Generated contract signatures: <span class="c-green">PriorityTaskQueue(max_concurrency=4)</span><br><br>
+          <span class="c-dim">── Executing Topological Wave 1 (Parallel Fan-Out) ──</span><br>
+          ✔ Worker 1 completed <span class="c-green">priority_task_queue.py</span> in 0.85s (580 tokens)<br>
+          ✔ Worker 2 completed <span class="c-green">test_priority_task_queue.py</span> in 0.62s (430 tokens)<br><br>
+          <span class="c-dim">── Executing Deterministic Verifier Gate (0 TOKENS) ──</span><br>
+          ✔ AST Contract Match: <span class="c-green">All exported symbols and signatures verified</span><br>
+          ✔ Subprocess PyTest: <span class="c-green">8 passed in 0.04s (Exit Code 0)</span><br><br>
+          <span class="c-green">🚀 100% Deterministic Pass! Verified artifacts synced to ./out/priority_queue/</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
