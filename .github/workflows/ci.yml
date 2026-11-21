@@ -32,7 +32,12 @@ jobs:
         source .venv/bin/activate
         uv pip install -e .
 
-    - name: Run Test Suite (38 tests)
+    - name: Run Ruff Linting
+      run: |
+        source .venv/bin/activate
+        ruff check triad/ tests/ examples/
+
+    - name: Run Test Suite (52 tests)
       run: |
         source .venv/bin/activate
         pytest -v
@@ -41,5 +46,6 @@ jobs:
       run: |
         source .venv/bin/activate
         triad version
+        triad repomap triad/core
         triad benchmark --slices 4 --provider mock
         triad graph examples/demo_workload.json --mermaid

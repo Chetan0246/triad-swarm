@@ -4,19 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
-import sys
 from pathlib import Path
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from triad.core.llm import MockLLMProvider, get_llm_provider
+from examples.demo_workload import setup_mock_data
+from triad.core.llm import MockLLMProvider
 from triad.core.models import WorkloadSpec
 from triad.orchestrator.engine import TriadEngine
 from triad.orchestrator.naive_engine import NaiveBaselineEngine
-from examples.demo_workload import setup_mock_data
 
 console = Console()
 
