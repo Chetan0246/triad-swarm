@@ -40,7 +40,7 @@ class PolyglotTracebackPruner:
                 break
 
         if not pruned:
-            pruned = [ln for ln in lines if "node_modules/" not in ln][-min(len(lines), max_lines):]
+            pruned = [ln for ln in lines if "node_modules/" not in ln][-min(len(lines), max_lines) :]
 
         return "\n".join(pruned[:max_lines])
 
@@ -146,9 +146,7 @@ class PolyglotVerifier:
             retcode, stdout, stderr = sandbox.exec_command(cmd, timeout_seconds=timeout_seconds)
             if retcode != 0:
                 failure_summary = (
-                    f"TypeScript test failure (exit code {retcode}):\n"
-                    f"STDOUT:\n{stdout}\n"
-                    f"STDERR:\n{stderr}"
+                    f"TypeScript test failure (exit code {retcode}):\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
                 )
                 pruned = PolyglotTracebackPruner.prune(failure_summary)
                 raw_token_est = int(len(failure_summary) * 0.25)

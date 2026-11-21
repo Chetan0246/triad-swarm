@@ -16,6 +16,7 @@ from triad.core.llm import LLMResponse
 
 class CacheEntry(BaseModel):
     """Cached response entry with metadata."""
+
     key: str
     response: LLMResponse
     created_at: float = Field(default_factory=time.time)

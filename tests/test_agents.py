@@ -17,26 +17,28 @@ async def test_architect_agent_decomposition():
     mock_llm = MockLLMProvider()
 
     # Predefine Architect JSON response
-    mock_architect_response = json.dumps({
-        "slices": [
-            {
-                "slice_id": "slice_math",
-                "title": "Math Utilities",
-                "description": "Provide math helper functions",
-                "target_files": ["math_utils.py"],
-                "contract": {
-                    "module_path": "math_utils.py",
-                    "exported_symbols": ["add_numbers"],
-                    "signatures": {"add_numbers": "def add_numbers(a: int, b: int) -> int"},
-                    "invariants": ["a + b must equal return value"]
-                },
-                "acceptance_tests": {
-                    "test_math.py": "from math_utils import add_numbers\ndef test_add(): assert add_numbers(2, 3) == 5"
-                },
-                "dependencies": []
-            }
-        ]
-    })
+    mock_architect_response = json.dumps(
+        {
+            "slices": [
+                {
+                    "slice_id": "slice_math",
+                    "title": "Math Utilities",
+                    "description": "Provide math helper functions",
+                    "target_files": ["math_utils.py"],
+                    "contract": {
+                        "module_path": "math_utils.py",
+                        "exported_symbols": ["add_numbers"],
+                        "signatures": {"add_numbers": "def add_numbers(a: int, b: int) -> int"},
+                        "invariants": ["a + b must equal return value"],
+                    },
+                    "acceptance_tests": {
+                        "test_math.py": "from math_utils import add_numbers\ndef test_add(): assert add_numbers(2, 3) == 5"
+                    },
+                    "dependencies": [],
+                }
+            ]
+        }
+    )
     mock_llm.register_response("Workload Name", mock_architect_response)
 
     architect = ArchitectAgent(llm=mock_llm, tracker=tracker)
@@ -54,12 +56,12 @@ async def test_worker_agent_execution_and_verifier():
     tracker = TokenTracker()
     mock_llm = MockLLMProvider()
 
-    worker_code_response = json.dumps({
-        "files": {
-            "math_utils.py": "def add_numbers(a: int, b: int) -> int:\n    return a + b\n"
-        },
-        "summary": "Implemented add_numbers"
-    })
+    worker_code_response = json.dumps(
+        {
+            "files": {"math_utils.py": "def add_numbers(a: int, b: int) -> int:\n    return a + b\n"},
+            "summary": "Implemented add_numbers",
+        }
+    )
     mock_llm.register_response("Task Slice: slice_math", worker_code_response)
 
     contract = InterfaceContract(

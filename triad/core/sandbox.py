@@ -1,13 +1,47 @@
-"""Isolated local sandbox environment providing minimalist Pi-style file and execution tools."""
+"""Isolated local sandbox environment providing minimalist Pi-style file and execution tools with resource limits."""
 
 from __future__ import annotations
 
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
+
+
+@dataclass
+class ResourceLimits:
+    """Production execution limits for sandboxed child processes."""
+
+    max_memory_mb: Optional[int] = 512
+    max_cpu_seconds: Optional[int] = 30
+    max_open_files: Optional[int] = 256
+    allow_network: bool = True
+
+
+def _create_posix_preexec(limits: Optional[ResourceLimits]) -> Optional[Callable[[], None]]:
+    """Create a POSIX preexec_fn to set RLIMIT limits before process starts."""
+    if not limits or sys.platform == "win32":
+        return None
+
+    def _preexec() -> None:
+        try:
+            import resource
+
+            if limits.max_memory_mb:
+                limit_bytes = limits.max_memory_mb * 1024 * 1024
+                resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
+            if limits.max_cpu_seconds:
+                resource.setrlimit(resource.RLIMIT_CPU, (limits.max_cpu_seconds, limits.max_cpu_seconds))
+            if limits.max_open_files:
+                resource.setrlimit(resource.RLIMIT_NOFILE, (limits.max_open_files, limits.max_open_files))
+        except Exception:
+            pass
+
+    return _preexec
 
 
 class IsolatedSandbox:
@@ -18,9 +52,11 @@ class IsolatedSandbox:
         base_dir: Optional[str] = None,
         cleanup: bool = False,
         allowed_files: Optional[List[str]] = None,
+        resource_limits: Optional[ResourceLimits] = None,
     ):
         self.cleanup = cleanup
         self.allowed_files = allowed_files
+        self.resource_limits = resource_limits or ResourceLimits()
         if base_dir:
             self.root = Path(base_dir).resolve()
             self.root.mkdir(parents=True, exist_ok=True)
@@ -93,12 +129,21 @@ class IsolatedSandbox:
         return mounted
 
     def exec_command(self, cmd: str, timeout_seconds: int = 30) -> Tuple[int, str, str]:
-        """Minimal exec tool running inside the sandbox root directory with isolated PYTHONPATH."""
+        """Minimal exec tool running inside the sandbox root directory with isolated PYTHONPATH and resource limits."""
         env = dict(os.environ)
         # Ensure root directory is on PYTHONPATH for clean relative imports
         existing_pythonpath = env.get("PYTHONPATH", "")
         env["PYTHONPATH"] = f"{self.root}:{existing_pythonpath}" if existing_pythonpath else str(self.root)
         env["PYTHONDONTWRITEBYTECODE"] = "1"
+
+        if not self.resource_limits.allow_network:
+            # Block outbound socket traffic by setting dummy local non-existent proxies
+            env["http_proxy"] = "http://127.0.0.1:0"
+            env["https_proxy"] = "http://127.0.0.1:0"
+            env["all_proxy"] = "socks5://127.0.0.1:0"
+            env["NO_PROXY"] = "localhost,127.0.0.1"
+
+        preexec = _create_posix_preexec(self.resource_limits)
 
         try:
             res = subprocess.run(
@@ -109,6 +154,7 @@ class IsolatedSandbox:
                 text=True,
                 timeout=timeout_seconds,
                 env=env,
+                preexec_fn=preexec,
             )
             return res.returncode, res.stdout, res.stderr
         except subprocess.TimeoutExpired:

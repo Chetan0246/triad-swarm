@@ -34,9 +34,7 @@ class NaiveBaselineEngine:
         """Run sequential baseline with accumulating conversation history and LLM Critic."""
         start_time = time.perf_counter()
 
-        chat_history: List[str] = [
-            f"Workload: {spec.name}\n{spec.description}"
-        ]
+        chat_history: List[str] = [f"Workload: {spec.name}\n{spec.description}"]
 
         sandbox = IsolatedSandbox(cleanup=True)
         tasks_succeeded = 0
@@ -48,7 +46,7 @@ class NaiveBaselineEngine:
             # Monolithic context accumulates all prior interactions
             prompt = (
                 "Previous Context:\n" + "\n---\n".join(chat_history) + "\n\n"
-                f"Now implement Task {idx+1}: {task_slice.title}\n"
+                f"Now implement Task {idx + 1}: {task_slice.title}\n"
                 f"Description: {task_slice.description}\n"
                 f"Target Files: {task_slice.target_files}\n"
                 f"Return JSON with files."
@@ -72,7 +70,7 @@ class NaiveBaselineEngine:
             )
 
             # Append to shared history
-            chat_history.append(f"Worker {idx+1} Output:\n{resp.content[:500]}...")
+            chat_history.append(f"Worker {idx + 1} Output:\n{resp.content[:500]}...")
 
             # 2. LLM Critic / Verifier (Traditional chat swarm wastes tokens here!)
             t_critic = time.perf_counter()

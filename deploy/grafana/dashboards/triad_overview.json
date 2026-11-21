@@ -1,0 +1,68 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "title": "Triad Swarm Production Overview",
+  "tags": ["triad", "multi-agent", "production"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Workloads Processed (by Outcome)",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum by (status) (triad_jobs_total)", "legendFormat": "{{status}}" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Zero-Token Deterministic Verifications",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        { "expr": "sum(triad_verification_events_total{status=\"pass\"})", "legendFormat": "Passed (0 tokens)" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Multi-Tier Cache Hits (<1ms)",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "triad_cache_hits_total", "legendFormat": "Cache Hits" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Active Running Jobs",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        { "expr": "triad_active_jobs", "legendFormat": "Active Workloads" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Token Consumption by Role (Architect vs Workers)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "triad_tokens_total", "legendFormat": "{{role}}" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Workload Execution Latency (seconds)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        { "expr": "triad_job_duration_seconds{quantile=\"0.5\"}", "legendFormat": "P50 Latency" }
+      ]
+    }
+  ]
+}

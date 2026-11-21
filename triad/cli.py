@@ -80,7 +80,9 @@ async def run_workload_cmd(
     if isinstance(raw_worker, MockLLMProvider):
         populate_mock_telemetry_defaults(raw_worker)
 
-    console.print(f"⚙️  [dim]Architect Model:[/dim] {router.architect_spec} | [dim]Worker Model:[/dim] {router.worker_spec}")
+    console.print(
+        f"⚙️  [dim]Architect Model:[/dim] {router.architect_spec} | [dim]Worker Model:[/dim] {router.worker_spec}"
+    )
     console.print(f"⚙️  [dim]Concurrency:[/dim] {concurrency} | [dim]Cache:[/dim] {enable_cache}\n")
 
     repo_map_str = None
@@ -105,20 +107,33 @@ async def run_workload_cmd(
     table.add_column("Value", style="magenta")
 
     table.add_row("Workload Name", metrics.workload_name)
-    table.add_row("Total Agents Invoked", f"{metrics.total_agents_invoked} (1 Architect + {metrics.tasks_total} Workers)")
+    table.add_row(
+        "Total Agents Invoked", f"{metrics.total_agents_invoked} (1 Architect + {metrics.tasks_total} Workers)"
+    )
     table.add_row("Active Concurrency", str(metrics.active_worker_concurrency))
     table.add_row("DAG Execution Waves", str(metrics.execution_waves))
     table.add_row("Wall Clock Time", f"{metrics.wall_clock_seconds:.2f} s")
     table.add_row("Cumulative Worker Time", f"{metrics.cumulative_worker_seconds:.2f} s")
     table.add_row("Parallel Speedup", f"{metrics.parallel_speedup:.2f}x")
-    table.add_row("Tasks Succeeded / Total", f"{metrics.tasks_succeeded} / {metrics.tasks_total} ({metrics.success_rate:.1f}%)")
+    table.add_row(
+        "Tasks Succeeded / Total", f"{metrics.tasks_succeeded} / {metrics.tasks_total} ({metrics.success_rate:.1f}%)"
+    )
     table.add_row("Total Tokens", f"{metrics.total_tokens:,}")
     table.add_row("Prompt / Completion", f"{metrics.prompt_tokens:,} / {metrics.completion_tokens:,}")
-    table.add_row("Zero-Token Verifications", f"[bold green]{metrics.zero_token_verifications}[/bold green] (100% Deterministic CPU Pass)")
+    table.add_row(
+        "Zero-Token Verifications",
+        f"[bold green]{metrics.zero_token_verifications}[/bold green] (100% Deterministic CPU Pass)",
+    )
     if metrics.cache_hits > 0:
-        table.add_row("Prompt Cache Hits", f"[bold green]{metrics.cache_hits}[/bold green] ({metrics.cache_tokens_saved:,} tokens saved)")
+        table.add_row(
+            "Prompt Cache Hits",
+            f"[bold green]{metrics.cache_hits}[/bold green] ({metrics.cache_tokens_saved:,} tokens saved)",
+        )
     if metrics.traceback_tokens_saved > 0:
-        table.add_row("Traceback Pruning Savings", f"[bold green]{metrics.traceback_tokens_saved:,}[/bold green] tokens saved on healing")
+        table.add_row(
+            "Traceback Pruning Savings",
+            f"[bold green]{metrics.traceback_tokens_saved:,}[/bold green] tokens saved on healing",
+        )
     table.add_row("Estimated Cost (USD)", f"${metrics.estimated_cost_usd:.5f}")
 
     console.print(table)
@@ -143,7 +158,7 @@ async def new_feature_cmd(
 ) -> None:
     """Zero-JSON natural language feature synthesis and autonomous execution."""
     render_banner()
-    console.print(f"✨ [bold green]Zero-JSON Feature Architect:[/bold green] \"{prompt}\"\n")
+    console.print(f'✨ [bold green]Zero-JSON Feature Architect:[/bold green] "{prompt}"\n')
 
     repo_map_str = None
     if repo_map_path:
@@ -213,11 +228,13 @@ def repomap_cmd(path: str) -> None:
 async def search_cmd(query: str, max_results: int) -> None:
     """Search web using TinyFish API or zero-cost free fallback."""
     render_banner()
-    console.print(f"🔎 [bold cyan]Web Search Query:[/bold cyan] \"{query}\"\n")
+    console.print(f'🔎 [bold cyan]Web Search Query:[/bold cyan] "{query}"\n')
     client = TinyFishClient()
     resp = await client.search(query=query, max_results=max_results)
 
-    table = Table(title=f"Search Results (Provider: {resp.provider}, Time: {resp.duration_seconds:.2f}s)", border_style="cyan")
+    table = Table(
+        title=f"Search Results (Provider: {resp.provider}, Time: {resp.duration_seconds:.2f}s)", border_style="cyan"
+    )
     table.add_column("#", style="dim", width=4)
     table.add_column("Title", style="bold cyan", max_width=40)
     table.add_column("URL", style="green", max_width=45)
@@ -239,7 +256,9 @@ async def fetch_cmd(url: str, max_chars: int) -> None:
     resp = await client.fetch(url=url, max_chars=max_chars)
     if resp.title:
         console.print(f"[bold]Title:[/bold] {resp.title}")
-    console.print(f"[dim]Provider: {resp.provider} | Length: {len(resp.content)} chars | Truncated: {resp.truncated}[/dim]\n")
+    console.print(
+        f"[dim]Provider: {resp.provider} | Length: {len(resp.content)} chars | Truncated: {resp.truncated}[/dim]\n"
+    )
     console.print(Panel(resp.content, title="Clean Extracted Content", border_style="green"))
 
 
@@ -295,10 +314,14 @@ def verify_file_cmd(target_file: str, contract_path: str) -> None:
 
     is_valid, errors = ASTContractValidator.validate_code(code_str, contract)
     if is_valid:
-        console.print(f"[bold green]✔ Contract Passed (0 Tokens):[/bold green] `{target_file}` fulfills all interface symbols and type contracts.")
+        console.print(
+            f"[bold green]✔ Contract Passed (0 Tokens):[/bold green] `{target_file}` fulfills all interface symbols and type contracts."
+        )
         sys.exit(0)
     else:
-        console.print(f"[bold red]✖ Contract Violation (0 Tokens):[/bold red] Found {len(errors)} errors in `{target_file}`:")
+        console.print(
+            f"[bold red]✖ Contract Violation (0 Tokens):[/bold red] Found {len(errors)} errors in `{target_file}`:"
+        )
         for err in errors:
             console.print(f"  • [red]{err}[/red]")
         sys.exit(2)
@@ -306,7 +329,9 @@ def verify_file_cmd(target_file: str, contract_path: str) -> None:
 
 async def run_benchmark_cmd(slices_count: int, provider_name: str) -> None:
     render_banner()
-    console.print("🔬 [bold yellow]Running Head-to-Head Benchmark:[/bold yellow] [bold cyan]Triad Swarm[/bold cyan] vs [bold red]Monolithic Naive Swarm[/bold red]\n")
+    console.print(
+        "🔬 [bold yellow]Running Head-to-Head Benchmark:[/bold yellow] [bold cyan]Triad Swarm[/bold cyan] vs [bold red]Monolithic Naive Swarm[/bold red]\n"
+    )
 
     spec = WorkloadSpec(
         name="Telemetry & Analytics Processing Engine",
@@ -347,10 +372,13 @@ async def run_benchmark_cmd(slices_count: int, provider_name: str) -> None:
         "Agent Roles Required",
         f"{naive_metrics.total_agents_invoked} (Worker + Critic per slice)",
         f"{triad_metrics.total_agents_invoked} (1 Architect + {len(slices)} Workers)",
-        f"[green]{((naive_metrics.total_agents_invoked - triad_metrics.total_agents_invoked) / naive_metrics.total_agents_invoked)*100:.0f}% fewer roles[/green]",
+        f"[green]{((naive_metrics.total_agents_invoked - triad_metrics.total_agents_invoked) / naive_metrics.total_agents_invoked) * 100:.0f}% fewer roles[/green]",
     )
 
-    time_saved = ((naive_metrics.wall_clock_seconds - triad_metrics.wall_clock_seconds) / max(0.001, naive_metrics.wall_clock_seconds)) * 100.0
+    time_saved = (
+        (naive_metrics.wall_clock_seconds - triad_metrics.wall_clock_seconds)
+        / max(0.001, naive_metrics.wall_clock_seconds)
+    ) * 100.0
     table.add_row(
         "Wall-Clock Time",
         f"{naive_metrics.wall_clock_seconds:.2f} s",
@@ -358,7 +386,9 @@ async def run_benchmark_cmd(slices_count: int, provider_name: str) -> None:
         f"[green]{time_saved:.1f}% faster ({triad_metrics.parallel_speedup:.2f}x speedup)[/green]",
     )
 
-    token_saved = ((naive_metrics.total_tokens - triad_metrics.total_tokens) / max(1, naive_metrics.total_tokens)) * 100.0
+    token_saved = (
+        (naive_metrics.total_tokens - triad_metrics.total_tokens) / max(1, naive_metrics.total_tokens)
+    ) * 100.0
     table.add_row(
         "Total Tokens Consumed",
         f"{naive_metrics.total_tokens:,}",
@@ -391,6 +421,56 @@ async def run_benchmark_cmd(slices_count: int, provider_name: str) -> None:
     console.print(table)
 
 
+def serve_cmd(
+    host: str,
+    port: int,
+    workers: int,
+    log_format: str,
+    log_level: str,
+) -> None:
+    import uvicorn
+
+    from triad.core.logging import configure_logging
+
+    configure_logging(format_type=log_format, level=log_level)
+    render_banner()
+    console.print("🚀 [bold green]Starting Triad Swarm Production Daemon[/bold green]")
+    console.print(f"📍 [bold cyan]Listening on http://{host}:{port}[/bold cyan]")
+    console.print(f"📊 [dim]Prometheus Metrics: http://{host}:{port}/metrics[/dim]")
+    console.print(f"🩺 [dim]Liveness: http://{host}:{port}/healthz | Readiness: http://{host}:{port}/readyz[/dim]\n")
+    uvicorn.run("triad.server.app:app", host=host, port=port, workers=workers)
+
+
+async def status_cmd(job_id: str, server_url: str) -> None:
+    import httpx
+
+    render_banner()
+    async with httpx.AsyncClient() as client:
+        try:
+            res = await client.get(f"{server_url.rstrip('/')}/api/v1/jobs/{job_id}")
+            if res.status_code == 404:
+                console.print(f"[bold red]Error:[/bold red] Job '{job_id}' not found on server {server_url}.")
+                sys.exit(1)
+            data = res.json()
+            table = Table(title=f"Triad Swarm Job Status: {job_id}", border_style="cyan")
+            table.add_column("Property", style="bold yellow")
+            table.add_column("Value", style="cyan")
+            table.add_row("Name", data.get("name", "N/A"))
+            table.add_row("Status", data.get("status", "N/A"))
+            table.add_row("Duration", f"{data.get('duration_seconds') or 0:.2f}s")
+            if data.get("metrics"):
+                m = data["metrics"]
+                table.add_row("Total Tokens", str(m.get("total_tokens", 0)))
+                table.add_row("Zero-Token Verifications", str(m.get("zero_token_verifications", 0)))
+                table.add_row("Cache Hits", str(m.get("cache_hits", 0)))
+            if data.get("error"):
+                table.add_row("Error", f"[red]{data['error']}[/red]")
+            console.print(table)
+        except Exception as e:
+            console.print(f"[bold red]Failed to query server {server_url}:[/bold red] {e}")
+            sys.exit(1)
+
+
 def main() -> None:
     load_dotenv_if_present()
     parser = argparse.ArgumentParser(description="Triad Swarm: Minimal-Agent High-Efficiency Framework")
@@ -402,9 +482,21 @@ def main() -> None:
     new_parser.add_argument("--out", "-o", type=str, default=None, help="Save generated WorkloadSpec JSON to file")
     new_parser.add_argument("--run", "-r", action="store_true", help="Immediately execute the swarm to build code")
     new_parser.add_argument("--output-dir", type=str, default="./out", help="Directory to sync verified code")
-    new_parser.add_argument("--provider", "-p", type=str, default="gemini", help="Default LLM provider (gemini, openai, ollama, mock)")
-    new_parser.add_argument("--architect-model", type=str, default=None, help="Model spec for Architect (e.g. gemini/gemini-3.8-flash, openai/gpt-4o)")
-    new_parser.add_argument("--worker-model", type=str, default=None, help="Model spec for Workers (e.g. gemini/gemini-3.8-flash, ollama/qwen2.5-coder)")
+    new_parser.add_argument(
+        "--provider", "-p", type=str, default="gemini", help="Default LLM provider (gemini, openai, ollama, mock)"
+    )
+    new_parser.add_argument(
+        "--architect-model",
+        type=str,
+        default=None,
+        help="Model spec for Architect (e.g. gemini/gemini-3.8-flash, openai/gpt-4o)",
+    )
+    new_parser.add_argument(
+        "--worker-model",
+        type=str,
+        default=None,
+        help="Model spec for Workers (e.g. gemini/gemini-3.8-flash, ollama/qwen2.5-coder)",
+    )
     new_parser.add_argument("--repo-map", type=str, default=None, help="Path to existing repo to map AST symbols")
     new_parser.add_argument("--concurrency", "-c", type=int, default=4, help="Max parallel workers (default: 4)")
     new_parser.add_argument("--no-cache", action="store_true", help="Disable prompt caching")
@@ -413,10 +505,14 @@ def main() -> None:
     run_parser = subparsers.add_parser("run", help="Run a workload specification JSON")
     run_parser.add_argument("workload", type=str, help="Path to JSON workload specification file")
     run_parser.add_argument("--concurrency", "-c", type=int, default=4, help="Max parallel workers (default: 4)")
-    run_parser.add_argument("--provider", "-p", type=str, default="gemini", help="Default LLM provider (gemini, openai, ollama, mock)")
+    run_parser.add_argument(
+        "--provider", "-p", type=str, default="gemini", help="Default LLM provider (gemini, openai, ollama, mock)"
+    )
     run_parser.add_argument("--architect-model", type=str, default=None, help="Model spec for Architect")
     run_parser.add_argument("--worker-model", type=str, default=None, help="Model spec for Workers")
-    run_parser.add_argument("--repo-map", type=str, default=None, help="Path to existing codebase to extract AST context")
+    run_parser.add_argument(
+        "--repo-map", type=str, default=None, help="Path to existing codebase to extract AST context"
+    )
     run_parser.add_argument("--out", "-o", type=str, default=None, help="Directory to sync generated verified code")
     run_parser.add_argument("--trace-file", "-t", type=str, default=None, help="Path to export Chrome trace event JSON")
     run_parser.add_argument("--no-cache", action="store_true", help="Disable exact semantic prompt caching")
@@ -433,7 +529,9 @@ def main() -> None:
     # Fetch command (TinyFish)
     fetch_parser = subparsers.add_parser("fetch", help="Fetch and clean web page content via TinyFish or free scraper")
     fetch_parser.add_argument("url", type=str, help="URL to fetch")
-    fetch_parser.add_argument("--max-chars", "-m", type=int, default=4000, help="Max characters to extract (default: 4000)")
+    fetch_parser.add_argument(
+        "--max-chars", "-m", type=int, default=4000, help="Max characters to extract (default: 4000)"
+    )
 
     # Graph command
     graph_parser = subparsers.add_parser("graph", help="Visualize dependency DAG and topological waves")
@@ -452,6 +550,33 @@ def main() -> None:
 
     # Dashboard command
     subparsers.add_parser("dashboard", help="Open the interactive architecture and benchmark visualizer")
+
+    # Serve command (Production Daemon)
+    serve_parser = subparsers.add_parser("serve", help="Launch the Triad Swarm production REST and SSE server")
+    serve_parser.add_argument("--host", type=str, default="0.0.0.0", help="Host address to bind (default: 0.0.0.0)")
+    serve_parser.add_argument("--port", type=int, default=8000, help="Port to bind (default: 8000)")
+    serve_parser.add_argument("--workers", type=int, default=1, help="Uvicorn worker count (default: 1)")
+    serve_parser.add_argument(
+        "--log-format",
+        type=str,
+        default="text",
+        choices=["text", "json"],
+        help="Log format: text or json (default: text)",
+    )
+    serve_parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Log level (default: INFO)",
+    )
+
+    # Status command
+    status_parser = subparsers.add_parser("status", help="Query status of a job on a running Triad Swarm server")
+    status_parser.add_argument("job_id", type=str, help="ID of the job to inspect")
+    status_parser.add_argument(
+        "--server", type=str, default="http://127.0.0.1:8000", help="Triad server URL (default: http://127.0.0.1:8000)"
+    )
 
     # Version command
     subparsers.add_parser("version", help="Print version")
@@ -506,6 +631,16 @@ def main() -> None:
         console.print("📊 [bold green]Interactive Architecture Dashboard Ready![/bold green]")
         console.print(f"🔗 [bold cyan]{file_uri}[/bold cyan]\n")
         console.print("[dim]Open the link above in your browser to explore the interactive visualizer.[/dim]")
+    elif args.command == "serve":
+        serve_cmd(
+            host=args.host,
+            port=args.port,
+            workers=args.workers,
+            log_format=args.log_format,
+            log_level=args.log_level,
+        )
+    elif args.command == "status":
+        asyncio.run(status_cmd(args.job_id, args.server))
     elif args.command == "version":
         console.print(f"Triad Swarm v{__version__}")
     else:

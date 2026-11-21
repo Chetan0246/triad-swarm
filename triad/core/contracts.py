@@ -12,6 +12,7 @@ from triad.core.models import InterfaceContract
 
 class ContractViolation(Exception):
     """Raised when an implementation fails to fulfill the Interface Contract."""
+
     pass
 
 
@@ -146,15 +147,11 @@ class ASTContractValidator:
                 errors.append(f"Required class '{class_name}' not found.")
             elif isinstance(class_node, ast.ClassDef):
                 class_methods = {
-                    item.name
-                    for item in class_node.body
-                    if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    item.name for item in class_node.body if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
                 }
                 for method in required_methods:
                     if method not in class_methods:
-                        errors.append(
-                            f"Class '{class_name}' is missing required method '{method}'"
-                        )
+                        errors.append(f"Class '{class_name}' is missing required method '{method}'")
             else:
                 errors.append(f"Symbol '{class_name}' was expected to be a class.")
 
@@ -178,13 +175,7 @@ class ASTContractValidator:
         exported_interfaces = set(re.findall(r"export\s+interface\s+([a-zA-Z0-9_$]+)", code_str))
         exported_types = set(re.findall(r"export\s+type\s+([a-zA-Z0-9_$]+)", code_str))
         exported_consts = set(re.findall(r"export\s+(?:const|let|var)\s+([a-zA-Z0-9_$]+)", code_str))
-        all_exports = (
-            exported_functions
-            | exported_classes
-            | exported_interfaces
-            | exported_types
-            | exported_consts
-        )
+        all_exports = exported_functions | exported_classes | exported_interfaces | exported_types | exported_consts
 
         # Also support export { a, b, c }
         for match in re.findall(r"export\s*\{([^}]+)\}", code_str):
@@ -237,7 +228,18 @@ class TracebackPruner:
 
         for line in lines:
             # Capture failure lines, errors, assertions, and summary
-            if any(marker in line for marker in ["FAILED", "FAILURES", "AssertionError", "SyntaxError", "TypeError", "AttributeError", "E   "]):
+            if any(
+                marker in line
+                for marker in [
+                    "FAILED",
+                    "FAILURES",
+                    "AssertionError",
+                    "SyntaxError",
+                    "TypeError",
+                    "AttributeError",
+                    "E   ",
+                ]
+            ):
                 pruned.append(line)
                 capture = True
             elif capture and (line.startswith(" ") or line.startswith(">")):
@@ -247,6 +249,6 @@ class TracebackPruner:
 
         if not pruned:
             # If standard markers not found, take the last few lines
-            pruned = lines[-min(len(lines), max_lines):]
+            pruned = lines[-min(len(lines), max_lines) :]
 
         return "\n".join(pruned[:max_lines])

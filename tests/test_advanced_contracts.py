@@ -3,10 +3,7 @@ from triad.core.models import InterfaceContract
 
 
 def test_ast_type_hints_validation():
-    code = (
-        "def compute_total(price: float, quantity: int) -> float:\n"
-        "    return price * quantity\n"
-    )
+    code = "def compute_total(price: float, quantity: int) -> float:\n    return price * quantity\n"
     contract = InterfaceContract(
         module_path="calc.py",
         exported_symbols=["compute_total"],
@@ -24,21 +21,14 @@ def test_ast_type_hints_validation():
     assert len(errors) == 0
 
     # Test type mismatch
-    bad_code = (
-        "def compute_total(price: str, quantity: int) -> int:\n"
-        "    return 0\n"
-    )
+    bad_code = "def compute_total(price: str, quantity: int) -> int:\n    return 0\n"
     is_valid_bad, errors_bad = ASTContractValidator.validate_code(bad_code, contract)
     assert not is_valid_bad
     assert any("type hint mismatch" in e or "return type mismatch" in e for e in errors_bad)
 
 
 def test_ast_required_classes_and_methods():
-    code = (
-        "class EventDispatcher:\n"
-        "    def dispatch(self, event: str) -> bool:\n"
-        "        return True\n"
-    )
+    code = "class EventDispatcher:\n    def dispatch(self, event: str) -> bool:\n        return True\n"
     contract = InterfaceContract(
         module_path="events.py",
         exported_symbols=["EventDispatcher"],

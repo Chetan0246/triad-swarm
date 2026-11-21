@@ -74,8 +74,7 @@ class ArchitectAgent(BaseAgent):
 
         if spec.initial_files:
             prompt_parts.append(
-                "Initial Files:\n"
-                + "\n".join(f"File `{k}`:\n```\n{v}\n```" for k, v in spec.initial_files.items())
+                "Initial Files:\n" + "\n".join(f"File `{k}`:\n```\n{v}\n```" for k, v in spec.initial_files.items())
             )
 
         if repo_map:
@@ -116,9 +115,7 @@ class ArchitectAgent(BaseAgent):
         elif isinstance(data, list):
             slice_dicts = data
         else:
-            raise ValueError(
-                f"Architect response is not a JSON object or list of slices: {type(data).__name__}"
-            )
+            raise ValueError(f"Architect response is not a JSON object or list of slices: {type(data).__name__}")
 
         parsed: List[TaskSlice] = []
         for s in slice_dicts:

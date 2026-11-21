@@ -10,11 +10,13 @@ from triad.core.models import TaskSlice
 
 class CircularDependencyError(Exception):
     """Raised when task slices form a cyclic dependency loop."""
+
     pass
 
 
 class MissingDependencyError(Exception):
     """Raised when a task slice depends on an unknown slice ID."""
+
     pass
 
 
@@ -28,9 +30,7 @@ class DAGScheduler:
         self.slices: Dict[str, TaskSlice] = {}
         for s in slices:
             if s.slice_id in self.slices:
-                raise ValueError(
-                    f"Duplicate task slice_id in workload: '{s.slice_id}'"
-                )
+                raise ValueError(f"Duplicate task slice_id in workload: '{s.slice_id}'")
             self.slices[s.slice_id] = s
         self._validate_dependencies()
         self.waves: List[List[TaskSlice]] = self._compute_topological_waves()
@@ -68,9 +68,7 @@ class DAGScheduler:
         if visited_count != len(self.slices):
             # Find remaining cycles for detailed error diagnostic
             cycle_nodes = [sid for sid, deg in in_degree.items() if deg > 0]
-            raise CircularDependencyError(
-                f"Circular dependency detected among task slices: {cycle_nodes}"
-            )
+            raise CircularDependencyError(f"Circular dependency detected among task slices: {cycle_nodes}")
 
     def _compute_topological_waves(self) -> List[List[TaskSlice]]:
         """

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: triad-config
+  namespace: triad-system
+data:
+  TRIAD_LOG_FORMAT: "json"
+  TRIAD_CONCURRENCY: "8"
+  TRIAD_ENABLE_CACHE: "true"
+  TRIAD_CACHE_DIR: "/app/.triad_cache"
+  RIVER_API_BASE: "https://api.river.ai/v1"

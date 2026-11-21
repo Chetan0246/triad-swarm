@@ -33,6 +33,7 @@ def load_dotenv_if_present(env_path: Optional[str] = None) -> None:
 
 class LLMResponse(BaseModel):
     """Normalized response from any LLM provider."""
+
     content: str
     prompt_tokens: int
     completion_tokens: int
@@ -95,42 +96,44 @@ class MockLLMProvider(BaseLLMProvider):
 
         if matched_content is None:
             if "Decompose this workload" in prompt or "Workload Name:" in prompt:
-                matched_content = json.dumps({
-                    "slices": [
-                        {
-                            "slice_id": "slice_01_core",
-                            "title": "Core Module Implementation",
-                            "description": "Implement core business logic",
-                            "target_files": ["core_module.py"],
-                            "contract": {
-                                "module_path": "core_module.py",
-                                "exported_symbols": ["execute_process"],
-                                "signatures": {"execute_process": "def execute_process(item_id: str) -> bool"},
-                                "invariants": ["Returns True on valid item"]
+                matched_content = json.dumps(
+                    {
+                        "slices": [
+                            {
+                                "slice_id": "slice_01_core",
+                                "title": "Core Module Implementation",
+                                "description": "Implement core business logic",
+                                "target_files": ["core_module.py"],
+                                "contract": {
+                                    "module_path": "core_module.py",
+                                    "exported_symbols": ["execute_process"],
+                                    "signatures": {"execute_process": "def execute_process(item_id: str) -> bool"},
+                                    "invariants": ["Returns True on valid item"],
+                                },
+                                "acceptance_tests": {
+                                    "test_core.py": "from core_module import execute_process\ndef test_exec(): assert execute_process('item_1')"
+                                },
+                                "dependencies": [],
                             },
-                            "acceptance_tests": {
-                                "test_core.py": "from core_module import execute_process\ndef test_exec(): assert execute_process('item_1')"
+                            {
+                                "slice_id": "slice_02_handler",
+                                "title": "Handler Service Implementation",
+                                "description": "Implement request handler logic",
+                                "target_files": ["handler_service.py"],
+                                "contract": {
+                                    "module_path": "handler_service.py",
+                                    "exported_symbols": ["handle_event"],
+                                    "signatures": {"handle_event": "def handle_event(payload: dict) -> dict"},
+                                    "invariants": ["Echoes back event status"],
+                                },
+                                "acceptance_tests": {
+                                    "test_handler.py": "from handler_service import handle_event\ndef test_handler(): res = handle_event({'k': 'v'}); assert res['status'] == 'ok'"
+                                },
+                                "dependencies": [],
                             },
-                            "dependencies": []
-                        },
-                        {
-                            "slice_id": "slice_02_handler",
-                            "title": "Handler Service Implementation",
-                            "description": "Implement request handler logic",
-                            "target_files": ["handler_service.py"],
-                            "contract": {
-                                "module_path": "handler_service.py",
-                                "exported_symbols": ["handle_event"],
-                                "signatures": {"handle_event": "def handle_event(payload: dict) -> dict"},
-                                "invariants": ["Echoes back event status"]
-                            },
-                            "acceptance_tests": {
-                                "test_handler.py": "from handler_service import handle_event\ndef test_handler(): res = handle_event({'k': 'v'}); assert res['status'] == 'ok'"
-                            },
-                            "dependencies": []
-                        }
-                    ]
-                })
+                        ]
+                    }
+                )
             elif "Task Slice:" in prompt:
                 # Extract target file and symbol if possible
                 target_file = "module.py"
@@ -144,14 +147,20 @@ class MockLLMProvider(BaseLLMProvider):
                 if "execute_process" in prompt:
                     code_lines.append("def execute_process(item_id: str) -> bool:\n    return len(item_id) > 0\n")
                 elif "handle_event" in prompt:
-                    code_lines.append("def handle_event(payload: dict) -> dict:\n    return {'status': 'ok', 'data': payload}\n")
+                    code_lines.append(
+                        "def handle_event(payload: dict) -> dict:\n    return {'status': 'ok', 'data': payload}\n"
+                    )
                 else:
-                    code_lines.append(f"# Auto-generated implementation for {target_file}\ndef default_handler():\n    return True\n")
+                    code_lines.append(
+                        f"# Auto-generated implementation for {target_file}\ndef default_handler():\n    return True\n"
+                    )
 
-                matched_content = json.dumps({
-                    "files": {target_file: "\n".join(code_lines)},
-                    "summary": f"Generated default implementation for {target_file}"
-                })
+                matched_content = json.dumps(
+                    {
+                        "files": {target_file: "\n".join(code_lines)},
+                        "summary": f"Generated default implementation for {target_file}",
+                    }
+                )
             elif json_mode:
                 matched_content = json.dumps({"status": "mock_success", "index": self._counter})
             else:
@@ -190,21 +199,17 @@ class GeminiProvider(BaseLLMProvider):
     ) -> LLMResponse:
         t0 = time.perf_counter()
 
-        contents: List[Dict[str, Any]] = [
-            {"role": "user", "parts": [{"text": prompt}]}
-        ]
+        contents: List[Dict[str, Any]] = [{"role": "user", "parts": [{"text": prompt}]}]
 
         payload: Dict[str, Any] = {
             "contents": contents,
             "generationConfig": {
                 "temperature": temperature,
-            }
+            },
         }
 
         if system_prompt:
-            payload["systemInstruction"] = {
-                "parts": [{"text": system_prompt}]
-            }
+            payload["systemInstruction"] = {"parts": [{"text": system_prompt}]}
 
         if json_mode:
             payload["generationConfig"]["responseMimeType"] = "application/json"
@@ -333,16 +338,15 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             self.endpoint = f"{raw_base}/chat/completions"
         else:
             self.endpoint = raw_base
-        self.api_key = (
-            api_key
-            or os.environ.get("RIVER_API_KEY")
-            or os.environ.get("OPENAI_API_KEY")
-            or "local-token"
-        )
+        self.api_key = api_key or os.environ.get("RIVER_API_KEY") or os.environ.get("OPENAI_API_KEY") or "local-token"
         self.model = (
             model
             or os.environ.get("RIVER_MODEL")
-            or ("deepseek-ai/DeepSeek-V4.1-Flash-1017" if "river.ai" in self.endpoint or os.environ.get("RIVER_API_KEY") else "qwen2.5-coder:7b")
+            or (
+                "deepseek-ai/DeepSeek-V4.1-Flash-1017"
+                if "river.ai" in self.endpoint or os.environ.get("RIVER_API_KEY")
+                else "qwen2.5-coder:7b"
+            )
         )
 
     async def generate(
@@ -407,6 +411,7 @@ class CachedLLMProvider(BaseLLMProvider):
 
     def __init__(self, provider: BaseLLMProvider, cache: Any = None):
         from triad.core.cache import PromptCacheManager
+
         self.provider = provider
         self.cache = cache if cache is not None else PromptCacheManager()
         self.model = getattr(provider, "model", "default")
@@ -456,9 +461,8 @@ def get_llm_provider(
 
     if choice == "mock":
         provider: BaseLLMProvider = MockLLMProvider()
-    elif (
-        choice in ("river", "ollama", "local", "vllm", "openai-compatible")
-        or (not choice and os.environ.get("RIVER_API_KEY"))
+    elif choice in ("river", "ollama", "local", "vllm", "openai-compatible") or (
+        not choice and os.environ.get("RIVER_API_KEY")
     ):
         provider = OpenAICompatibleProvider(
             base_url=base_url or os.environ.get("RIVER_API_BASE"),
@@ -479,184 +483,194 @@ def get_llm_provider(
 
 def populate_mock_telemetry_defaults(mock: MockLLMProvider) -> None:
     """Register high-fidelity mock implementations for reproducible offline telemetry benchmarks."""
-    architect_json = json.dumps({
-        "slices": [
-            {
-                "slice_id": "slice_storage",
-                "title": "Time-Series Ring Buffer Storage",
-                "description": "Implement InMemoryRingBuffer with append and query_range",
-                "target_files": ["telemetry/storage.py"],
-                "contract": {
-                    "module_path": "telemetry/storage.py",
-                    "exported_symbols": ["InMemoryRingBuffer"],
-                    "signatures": {
-                        "append": "def append(self, timestamp: float, value: float) -> None",
-                        "query_range": "def query_range(self, start_ts: float, end_ts: float) -> list"
+    architect_json = json.dumps(
+        {
+            "slices": [
+                {
+                    "slice_id": "slice_storage",
+                    "title": "Time-Series Ring Buffer Storage",
+                    "description": "Implement InMemoryRingBuffer with append and query_range",
+                    "target_files": ["telemetry/storage.py"],
+                    "contract": {
+                        "module_path": "telemetry/storage.py",
+                        "exported_symbols": ["InMemoryRingBuffer"],
+                        "signatures": {
+                            "append": "def append(self, timestamp: float, value: float) -> None",
+                            "query_range": "def query_range(self, start_ts: float, end_ts: float) -> list",
+                        },
+                        "invariants": ["Points must remain ordered by timestamp"],
                     },
-                    "invariants": ["Points must remain ordered by timestamp"]
-                },
-                "acceptance_tests": {
-                    "tests/test_storage.py": (
-                        "from telemetry.storage import InMemoryRingBuffer\n"
-                        "def test_buffer():\n"
-                        "    buf = InMemoryRingBuffer(capacity=10)\n"
-                        "    buf.append(1.0, 10.0)\n"
-                        "    buf.append(2.0, 20.0)\n"
-                        "    res = buf.query_range(0.0, 3.0)\n"
-                        "    assert len(res) == 2\n"
-                    )
-                },
-                "dependencies": []
-            },
-            {
-                "slice_id": "slice_stats",
-                "title": "Windowed Statistics Engine",
-                "description": "Implement compute_percentiles and compute_mean",
-                "target_files": ["telemetry/statistics.py"],
-                "contract": {
-                    "module_path": "telemetry/statistics.py",
-                    "exported_symbols": ["compute_percentiles", "compute_mean"],
-                    "signatures": {
-                        "compute_percentiles": "def compute_percentiles(values: list, percentiles: list) -> dict",
-                        "compute_mean": "def compute_mean(values: list) -> float"
+                    "acceptance_tests": {
+                        "tests/test_storage.py": (
+                            "from telemetry.storage import InMemoryRingBuffer\n"
+                            "def test_buffer():\n"
+                            "    buf = InMemoryRingBuffer(capacity=10)\n"
+                            "    buf.append(1.0, 10.0)\n"
+                            "    buf.append(2.0, 20.0)\n"
+                            "    res = buf.query_range(0.0, 3.0)\n"
+                            "    assert len(res) == 2\n"
+                        )
                     },
-                    "invariants": ["Mean of empty list is 0.0"]
+                    "dependencies": [],
                 },
-                "acceptance_tests": {
-                    "tests/test_stats.py": (
-                        "from telemetry.statistics import compute_percentiles, compute_mean\n"
-                        "def test_stats():\n"
-                        "    vals = [10.0, 20.0, 30.0, 40.0, 50.0]\n"
-                        "    assert compute_mean(vals) == 30.0\n"
-                        "    pcts = compute_percentiles(vals, [50, 90])\n"
-                        "    assert 50 in pcts\n"
-                    )
-                },
-                "dependencies": []
-            },
-            {
-                "slice_id": "slice_alerts",
-                "title": "Threshold Alert Evaluator",
-                "description": "Implement AlertRule and evaluate_alerts",
-                "target_files": ["telemetry/alerts.py"],
-                "contract": {
-                    "module_path": "telemetry/alerts.py",
-                    "exported_symbols": ["AlertRule", "evaluate_alerts"],
-                    "signatures": {
-                        "evaluate_alerts": "def evaluate_alerts(rules: list, current_value: float) -> list"
+                {
+                    "slice_id": "slice_stats",
+                    "title": "Windowed Statistics Engine",
+                    "description": "Implement compute_percentiles and compute_mean",
+                    "target_files": ["telemetry/statistics.py"],
+                    "contract": {
+                        "module_path": "telemetry/statistics.py",
+                        "exported_symbols": ["compute_percentiles", "compute_mean"],
+                        "signatures": {
+                            "compute_percentiles": "def compute_percentiles(values: list, percentiles: list) -> dict",
+                            "compute_mean": "def compute_mean(values: list) -> float",
+                        },
+                        "invariants": ["Mean of empty list is 0.0"],
                     },
-                    "invariants": ["Returns triggered rule names"]
-                },
-                "acceptance_tests": {
-                    "tests/test_alerts.py": (
-                        "from telemetry.alerts import AlertRule, evaluate_alerts\n"
-                        "def test_alerts():\n"
-                        "    rule = AlertRule(name='HighLatency', threshold=100.0)\n"
-                        "    triggered = evaluate_alerts([rule], 150.0)\n"
-                        "    assert 'HighLatency' in triggered\n"
-                    )
-                },
-                "dependencies": []
-            },
-            {
-                "slice_id": "slice_exporter",
-                "title": "Dashboard Exporter Payload Formatter",
-                "description": "Implement format_dashboard_payload",
-                "target_files": ["telemetry/exporter.py"],
-                "contract": {
-                    "module_path": "telemetry/exporter.py",
-                    "exported_symbols": ["format_dashboard_payload"],
-                    "signatures": {
-                        "format_dashboard_payload": "def format_dashboard_payload(metric_name: str, stats: dict, alerts: list) -> dict"
+                    "acceptance_tests": {
+                        "tests/test_stats.py": (
+                            "from telemetry.statistics import compute_percentiles, compute_mean\n"
+                            "def test_stats():\n"
+                            "    vals = [10.0, 20.0, 30.0, 40.0, 50.0]\n"
+                            "    assert compute_mean(vals) == 30.0\n"
+                            "    pcts = compute_percentiles(vals, [50, 90])\n"
+                            "    assert 50 in pcts\n"
+                        )
                     },
-                    "invariants": ["Must contain metric, stats, alerts, and timestamp keys"]
+                    "dependencies": [],
                 },
-                "acceptance_tests": {
-                    "tests/test_exporter.py": (
-                        "from telemetry.exporter import format_dashboard_payload\n"
-                        "def test_exporter():\n"
-                        "    p = format_dashboard_payload('cpu_load', {'mean': 45.2}, ['Warning'])\n"
-                        "    assert p['metric'] == 'cpu_load'\n"
-                        "    assert p['stats']['mean'] == 45.2\n"
-                    )
+                {
+                    "slice_id": "slice_alerts",
+                    "title": "Threshold Alert Evaluator",
+                    "description": "Implement AlertRule and evaluate_alerts",
+                    "target_files": ["telemetry/alerts.py"],
+                    "contract": {
+                        "module_path": "telemetry/alerts.py",
+                        "exported_symbols": ["AlertRule", "evaluate_alerts"],
+                        "signatures": {
+                            "evaluate_alerts": "def evaluate_alerts(rules: list, current_value: float) -> list"
+                        },
+                        "invariants": ["Returns triggered rule names"],
+                    },
+                    "acceptance_tests": {
+                        "tests/test_alerts.py": (
+                            "from telemetry.alerts import AlertRule, evaluate_alerts\n"
+                            "def test_alerts():\n"
+                            "    rule = AlertRule(name='HighLatency', threshold=100.0)\n"
+                            "    triggered = evaluate_alerts([rule], 150.0)\n"
+                            "    assert 'HighLatency' in triggered\n"
+                        )
+                    },
+                    "dependencies": [],
                 },
-                "dependencies": []
-            }
-        ]
-    })
+                {
+                    "slice_id": "slice_exporter",
+                    "title": "Dashboard Exporter Payload Formatter",
+                    "description": "Implement format_dashboard_payload",
+                    "target_files": ["telemetry/exporter.py"],
+                    "contract": {
+                        "module_path": "telemetry/exporter.py",
+                        "exported_symbols": ["format_dashboard_payload"],
+                        "signatures": {
+                            "format_dashboard_payload": "def format_dashboard_payload(metric_name: str, stats: dict, alerts: list) -> dict"
+                        },
+                        "invariants": ["Must contain metric, stats, alerts, and timestamp keys"],
+                    },
+                    "acceptance_tests": {
+                        "tests/test_exporter.py": (
+                            "from telemetry.exporter import format_dashboard_payload\n"
+                            "def test_exporter():\n"
+                            "    p = format_dashboard_payload('cpu_load', {'mean': 45.2}, ['Warning'])\n"
+                            "    assert p['metric'] == 'cpu_load'\n"
+                            "    assert p['stats']['mean'] == 45.2\n"
+                        )
+                    },
+                    "dependencies": [],
+                },
+            ]
+        }
+    )
     mock.register_response("Telemetry & Analytics", architect_json)
     mock.register_response("High-Throughput", architect_json)
 
-    storage_code = json.dumps({
-        "files": {
-            "telemetry/storage.py": (
-                "class InMemoryRingBuffer:\n"
-                "    def __init__(self, capacity: int = 1000):\n"
-                "        self.capacity = capacity\n"
-                "        self.buffer = []\n\n"
-                "    def append(self, timestamp: float, value: float) -> None:\n"
-                "        if len(self.buffer) >= self.capacity:\n"
-                "            self.buffer.pop(0)\n"
-                "        self.buffer.append((timestamp, value))\n\n"
-                "    def query_range(self, start_ts: float, end_ts: float) -> list:\n"
-                "        return [val for ts, val in self.buffer if start_ts <= ts <= end_ts]\n"
-            )
+    storage_code = json.dumps(
+        {
+            "files": {
+                "telemetry/storage.py": (
+                    "class InMemoryRingBuffer:\n"
+                    "    def __init__(self, capacity: int = 1000):\n"
+                    "        self.capacity = capacity\n"
+                    "        self.buffer = []\n\n"
+                    "    def append(self, timestamp: float, value: float) -> None:\n"
+                    "        if len(self.buffer) >= self.capacity:\n"
+                    "            self.buffer.pop(0)\n"
+                    "        self.buffer.append((timestamp, value))\n\n"
+                    "    def query_range(self, start_ts: float, end_ts: float) -> list:\n"
+                    "        return [val for ts, val in self.buffer if start_ts <= ts <= end_ts]\n"
+                )
+            }
         }
-    })
+    )
     mock.register_response("slice_storage", storage_code)
 
-    stats_code = json.dumps({
-        "files": {
-            "telemetry/statistics.py": (
-                "def compute_mean(values: list) -> float:\n"
-                "    if not values:\n"
-                "        return 0.0\n"
-                "    return sum(values) / len(values)\n\n"
-                "def compute_percentiles(values: list, percentiles: list) -> dict:\n"
-                "    if not values:\n"
-                "        return {p: 0.0 for p in percentiles}\n"
-                "    sorted_v = sorted(values)\n"
-                "    res = {}\n"
-                "    for p in percentiles:\n"
-                "        idx = int((p / 100.0) * len(sorted_v))\n"
-                "        idx = min(idx, len(sorted_v) - 1)\n"
-                "        res[p] = sorted_v[idx]\n"
-                "    return res\n"
-            )
+    stats_code = json.dumps(
+        {
+            "files": {
+                "telemetry/statistics.py": (
+                    "def compute_mean(values: list) -> float:\n"
+                    "    if not values:\n"
+                    "        return 0.0\n"
+                    "    return sum(values) / len(values)\n\n"
+                    "def compute_percentiles(values: list, percentiles: list) -> dict:\n"
+                    "    if not values:\n"
+                    "        return {p: 0.0 for p in percentiles}\n"
+                    "    sorted_v = sorted(values)\n"
+                    "    res = {}\n"
+                    "    for p in percentiles:\n"
+                    "        idx = int((p / 100.0) * len(sorted_v))\n"
+                    "        idx = min(idx, len(sorted_v) - 1)\n"
+                    "        res[p] = sorted_v[idx]\n"
+                    "    return res\n"
+                )
+            }
         }
-    })
+    )
     mock.register_response("slice_stats", stats_code)
 
-    alerts_code = json.dumps({
-        "files": {
-            "telemetry/alerts.py": (
-                "class AlertRule:\n"
-                "    def __init__(self, name: str, threshold: float):\n"
-                "        self.name = name\n"
-                "        self.threshold = threshold\n\n"
-                "def evaluate_alerts(rules: list, current_value: float) -> list:\n"
-                "    triggered = []\n"
-                "    for r in rules:\n"
-                "        if current_value >= r.threshold:\n"
-                "            triggered.append(r.name)\n"
-                "    return triggered\n"
-            )
+    alerts_code = json.dumps(
+        {
+            "files": {
+                "telemetry/alerts.py": (
+                    "class AlertRule:\n"
+                    "    def __init__(self, name: str, threshold: float):\n"
+                    "        self.name = name\n"
+                    "        self.threshold = threshold\n\n"
+                    "def evaluate_alerts(rules: list, current_value: float) -> list:\n"
+                    "    triggered = []\n"
+                    "    for r in rules:\n"
+                    "        if current_value >= r.threshold:\n"
+                    "            triggered.append(r.name)\n"
+                    "    return triggered\n"
+                )
+            }
         }
-    })
+    )
     mock.register_response("slice_alerts", alerts_code)
 
-    exporter_code = json.dumps({
-        "files": {
-            "telemetry/exporter.py": (
-                "import time\n\n"
-                "def format_dashboard_payload(metric_name: str, stats: dict, alerts: list) -> dict:\n"
-                "    return {\n"
-                "        'metric': metric_name,\n"
-                "        'stats': stats,\n"
-                "        'alerts': alerts,\n"
-                "        'timestamp': time.time(),\n"
-                "    }\n"
-            )
+    exporter_code = json.dumps(
+        {
+            "files": {
+                "telemetry/exporter.py": (
+                    "import time\n\n"
+                    "def format_dashboard_payload(metric_name: str, stats: dict, alerts: list) -> dict:\n"
+                    "    return {\n"
+                    "        'metric': metric_name,\n"
+                    "        'stats': stats,\n"
+                    "        'alerts': alerts,\n"
+                    "        'timestamp': time.time(),\n"
+                    "    }\n"
+                )
+            }
         }
-    })
+    )
     mock.register_response("slice_exporter", exporter_code)

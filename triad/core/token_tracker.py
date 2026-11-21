@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 class TokenRecord(BaseModel):
     """An individual token transaction."""
+
     agent_id: str
     phase: str  # "architect", "worker", "verifier", "healing"
     prompt_tokens: int
@@ -212,11 +213,13 @@ class TokenTracker:
 
         # Add advanced optimizations summary
         if self._cache_hits > 0 or self._traceback_tokens_saved > 0:
-            lines.extend([
-                "",
-                "#### ⚡ Efficiency Gains",
-                f"- **Exact Prompt Cache Hits:** `{self._cache_hits}` hits ({self._cache_tokens_saved:,} tokens saved)",
-                f"- **Traceback Pruning Savings:** `{self._traceback_tokens_saved:,}` tokens eliminated from retry prompts",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "#### ⚡ Efficiency Gains",
+                    f"- **Exact Prompt Cache Hits:** `{self._cache_hits}` hits ({self._cache_tokens_saved:,} tokens saved)",
+                    f"- **Traceback Pruning Savings:** `{self._traceback_tokens_saved:,}` tokens eliminated from retry prompts",
+                ]
+            )
 
         return "\n".join(lines)

@@ -20,11 +20,13 @@ console = Console()
 
 
 async def run_rigorous_benchmark():
-    console.print(Panel(
-        "[bold cyan]🔬 Multi-Agent Swarm Rigorous A/B Benchmark[/bold cyan]\n"
-        "[italic]Comparing Architecture Scaling, Token Economics, Time-to-Complete, and Success Rate[/italic]",
-        border_style="cyan"
-    ))
+    console.print(
+        Panel(
+            "[bold cyan]🔬 Multi-Agent Swarm Rigorous A/B Benchmark[/bold cyan]\n"
+            "[italic]Comparing Architecture Scaling, Token Economics, Time-to-Complete, and Success Rate[/italic]",
+            border_style="cyan",
+        )
+    )
 
     workload_path = Path(__file__).parent / "demo_workload.json"
     spec = WorkloadSpec(**json.loads(workload_path.read_text(encoding="utf-8")))
@@ -44,7 +46,9 @@ async def run_rigorous_benchmark():
 
     # 3. Run Naive Monolithic Sequential Chat Swarm
     console.print("\n⏳ [bold red]Phase 2: Executing Naive Monolithic Chat Swarm[/bold red]")
-    console.print("   • Architecture: Sequential Single-Threaded -> Accumulating Shared Chat Context -> LLM Critic Reviewer")
+    console.print(
+        "   • Architecture: Sequential Single-Threaded -> Accumulating Shared Chat Context -> LLM Critic Reviewer"
+    )
     naive_engine = NaiveBaselineEngine(llm=mock_llm)
     naive_metrics = await naive_engine.execute_workload(spec, slices)
 
@@ -142,7 +146,7 @@ async def run_rigorous_benchmark():
 4. [green]Maximum Success Ratio:[/green] Interface contracts and TDD gates ensure verified 100% test pass rate with zero syntax or symbol mismatches.
 """,
         title="✨ Architectural Conclusion",
-        border_style="yellow"
+        border_style="yellow",
     )
     console.print("\n")
     console.print(summary_panel)

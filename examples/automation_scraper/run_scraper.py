@@ -20,53 +20,59 @@ console = Console()
 
 def setup_mock_scraper(mock: MockLLMProvider) -> None:
     """Pre-register complete scraper implementations for offline execution."""
-    fetcher_code = json.dumps({
-        "files": {
-            "scraper/fetcher.py": (
-                "def fetch_content(url: str, retries: int = 2) -> dict:\n"
-                "    # Simulates clean HTTP response\n"
-                "    sample_html = (\n"
-                "        '<div class=\"card\"><h2><a href=\"/post1\">Headline 1</a></h2><p>Summary 1</p></div>\\n'\n"
-                "        '<div class=\"card\"><h2><a href=\"/post2\">Headline 2</a></h2><p>Summary 2</p></div>'\n"
-                "    )\n"
-                "    return {'status_code': 200, 'url': url, 'content': sample_html}\n"
-            )
-        },
-        "summary": "HTTP fetcher with simulated response"
-    })
+    fetcher_code = json.dumps(
+        {
+            "files": {
+                "scraper/fetcher.py": (
+                    "def fetch_content(url: str, retries: int = 2) -> dict:\n"
+                    "    # Simulates clean HTTP response\n"
+                    "    sample_html = (\n"
+                    '        \'<div class="card"><h2><a href="/post1">Headline 1</a></h2><p>Summary 1</p></div>\\n\'\n'
+                    '        \'<div class="card"><h2><a href="/post2">Headline 2</a></h2><p>Summary 2</p></div>\'\n'
+                    "    )\n"
+                    "    return {'status_code': 200, 'url': url, 'content': sample_html}\n"
+                )
+            },
+            "summary": "HTTP fetcher with simulated response",
+        }
+    )
 
-    parser_code = json.dumps({
-        "files": {
-            "scraper/parser.py": (
-                "import re\n"
-                "from typing import List, Dict, Any\n\n"
-                "def parse_items(html_str: str) -> List[Dict[str, Any]]:\n"
-                "    items = []\n"
-                "    matches = re.findall(r'<a href=\"([^\"]+)\">([^<]+)</a>(?:</h2><p>([^<]+))?', html_str)\n"
-                "    for href, title, summary in matches:\n"
-                "        items.append({'title': title.strip(), 'link': href.strip(), 'summary': summary.strip() if summary else ''})\n"
-                "    return items\n"
-            )
-        },
-        "summary": "Regex-based HTML data extractor"
-    })
+    parser_code = json.dumps(
+        {
+            "files": {
+                "scraper/parser.py": (
+                    "import re\n"
+                    "from typing import List, Dict, Any\n\n"
+                    "def parse_items(html_str: str) -> List[Dict[str, Any]]:\n"
+                    "    items = []\n"
+                    '    matches = re.findall(r\'<a href="([^"]+)">([^<]+)</a>(?:</h2><p>([^<]+))?\', html_str)\n'
+                    "    for href, title, summary in matches:\n"
+                    "        items.append({'title': title.strip(), 'link': href.strip(), 'summary': summary.strip() if summary else ''})\n"
+                    "    return items\n"
+                )
+            },
+            "summary": "Regex-based HTML data extractor",
+        }
+    )
 
-    reporter_code = json.dumps({
-        "files": {
-            "scraper/reporter.py": (
-                "from typing import List, Dict, Any\n\n"
-                "def generate_report(items: List[Dict[str, Any]]) -> Dict[str, str]:\n"
-                "    md_lines = ['| Title | Link | Summary |', '|---|---|---|']\n"
-                "    html_rows = []\n"
-                "    for it in items:\n"
-                "        md_lines.append(f\"| {it.get('title')} | {it.get('link')} | {it.get('summary')} |\")\n"
-                "        html_rows.append(f\"<tr><td>{it.get('title')}</td><td><a href='{it.get('link')}'>Link</a></td><td>{it.get('summary')}</td></tr>\")\n"
-                "    html_doc = f\"<html><body><h2>Scraped Digest</h2><table>{''.join(html_rows)}</table></body></html>\"\n"
-                "    return {'markdown': '\\n'.join(md_lines), 'html': html_doc}\n"
-            )
-        },
-        "summary": "Multi-format report generator (HTML + Markdown)"
-    })
+    reporter_code = json.dumps(
+        {
+            "files": {
+                "scraper/reporter.py": (
+                    "from typing import List, Dict, Any\n\n"
+                    "def generate_report(items: List[Dict[str, Any]]) -> Dict[str, str]:\n"
+                    "    md_lines = ['| Title | Link | Summary |', '|---|---|---|']\n"
+                    "    html_rows = []\n"
+                    "    for it in items:\n"
+                    "        md_lines.append(f\"| {it.get('title')} | {it.get('link')} | {it.get('summary')} |\")\n"
+                    "        html_rows.append(f\"<tr><td>{it.get('title')}</td><td><a href='{it.get('link')}'>Link</a></td><td>{it.get('summary')}</td></tr>\")\n"
+                    "    html_doc = f\"<html><body><h2>Scraped Digest</h2><table>{''.join(html_rows)}</table></body></html>\"\n"
+                    "    return {'markdown': '\\n'.join(md_lines), 'html': html_doc}\n"
+                )
+            },
+            "summary": "Multi-format report generator (HTML + Markdown)",
+        }
+    )
 
     mock.register_response("fetch_content", fetcher_code)
     mock.register_response("parse_items", parser_code)
@@ -74,11 +80,13 @@ def setup_mock_scraper(mock: MockLLMProvider) -> None:
 
 
 async def main() -> None:
-    console.print(Panel(
-        "[bold cyan]Triad Swarm: Everyday Web Scraper & Report Pipeline[/bold cyan]\n"
-        "[dim]Decomposing & Synthesizing: HTTP Fetcher -> HTML Parser -> HTML/Markdown Report Generator[/dim]",
-        border_style="cyan"
-    ))
+    console.print(
+        Panel(
+            "[bold cyan]Triad Swarm: Everyday Web Scraper & Report Pipeline[/bold cyan]\n"
+            "[dim]Decomposing & Synthesizing: HTTP Fetcher -> HTML Parser -> HTML/Markdown Report Generator[/dim]",
+            border_style="cyan",
+        )
+    )
 
     workload_path = Path(__file__).parent / "workload_scraper.json"
     data = json.loads(workload_path.read_text())

@@ -18,6 +18,7 @@ class DeterministicVerifier:
     def __init__(self, tracker: TokenTracker):
         self.tracker = tracker
         from triad.agents.polyglot import PolyglotVerifier
+
         self.polyglot = PolyglotVerifier(tracker=tracker)
 
     def verify(
@@ -99,9 +100,7 @@ class DeterministicVerifier:
 
             if retcode != 0:
                 failure_summary = (
-                    f"Acceptance test failure (exit code {retcode}):\n"
-                    f"STDOUT:\n{stdout}\n"
-                    f"STDERR:\n{stderr}"
+                    f"Acceptance test failure (exit code {retcode}):\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
                 )
                 # Prune traceback to save tokens in self-healing
                 pruned = TracebackPruner.prune(failure_summary)

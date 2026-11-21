@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 class SearchResult(BaseModel):
     """Normalized search result item."""
+
     title: str
     url: str
     snippet: str
@@ -26,6 +27,7 @@ class SearchResult(BaseModel):
 
 class WebSearchResponse(BaseModel):
     """Normalized response for web search queries."""
+
     query: str
     results: List[SearchResult] = Field(default_factory=list)
     provider: str
@@ -34,6 +36,7 @@ class WebSearchResponse(BaseModel):
 
 class WebFetchResponse(BaseModel):
     """Normalized response for web URL fetches."""
+
     url: str
     title: str = ""
     content: str
@@ -78,7 +81,9 @@ class FreeWebEngine:
         return text.strip()
 
     @classmethod
-    async def search(cls, query: str, max_results: int = 5, client: Optional[httpx.AsyncClient] = None) -> List[SearchResult]:
+    async def search(
+        cls, query: str, max_results: int = 5, client: Optional[httpx.AsyncClient] = None
+    ) -> List[SearchResult]:
         """Free web search fallback using DuckDuckGo Lite."""
         headers = {
             "User-Agent": "Mozilla/5.0",
@@ -116,12 +121,14 @@ class FreeWebEngine:
                             actual_url = parsed["uddg"][0]
                     clean_title = html.unescape(re.sub(r"<[^>]+>", "", raw_title).strip())
                     clean_snippet = html.unescape(re.sub(r"<[^>]+>", "", snippets[i]).strip())
-                    results.append(SearchResult(
-                        title=clean_title,
-                        url=actual_url,
-                        snippet=clean_snippet,
-                        source="duckduckgo_lite_free",
-                    ))
+                    results.append(
+                        SearchResult(
+                            title=clean_title,
+                            url=actual_url,
+                            snippet=clean_snippet,
+                            source="duckduckgo_lite_free",
+                        )
+                    )
         except Exception:
             pass
         finally:
@@ -131,7 +138,9 @@ class FreeWebEngine:
         return results
 
     @classmethod
-    async def fetch(cls, url: str, max_chars: int = 4000, client: Optional[httpx.AsyncClient] = None) -> WebFetchResponse:
+    async def fetch(
+        cls, url: str, max_chars: int = 4000, client: Optional[httpx.AsyncClient] = None
+    ) -> WebFetchResponse:
         """Free web scraper fallback with HTML cleaning and text extraction."""
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) TriadSwarm/0.3.0",
@@ -207,6 +216,7 @@ class TinyFishClient:
     async def search(self, query: str, max_results: int = 5) -> WebSearchResponse:
         """Search the web via TinyFish API, falling back to free search when unauthenticated."""
         import time
+
         t0 = time.perf_counter()
 
         # If API key is provided, use TinyFish API
@@ -261,6 +271,7 @@ class TinyFishClient:
     async def fetch(self, url: str, max_chars: int = 4000) -> WebFetchResponse:
         """Fetch and extract web page content via TinyFish API or zero-cost scraper."""
         import time
+
         t0 = time.perf_counter()
 
         if self.api_key:

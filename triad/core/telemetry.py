@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 class TraceSpan(BaseModel):
     """An individual operation span in the swarm lifecycle."""
+
     name: str
     phase: str
     agent_id: str
@@ -74,19 +75,21 @@ class SwarmTracer:
 
                 # Map phase to process or thread
                 tid = s.agent_id
-                trace_events.append({
-                    "name": s.name,
-                    "cat": s.phase,
-                    "ph": "X",
-                    "ts": max(0, ts_micro),
-                    "dur": max(10, dur_micro),
-                    "pid": 1,
-                    "tid": tid,
-                    "args": {
-                        "status": s.status,
-                        **{k: str(v) for k, v in s.metadata.items()},
-                    },
-                })
+                trace_events.append(
+                    {
+                        "name": s.name,
+                        "cat": s.phase,
+                        "ph": "X",
+                        "ts": max(0, ts_micro),
+                        "dur": max(10, dur_micro),
+                        "pid": 1,
+                        "tid": tid,
+                        "args": {
+                            "status": s.status,
+                            **{k: str(v) for k, v in s.metadata.items()},
+                        },
+                    }
+                )
 
         p = Path(output_path).resolve()
         p.parent.mkdir(parents=True, exist_ok=True)

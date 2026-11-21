@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: "triad-swarm"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["triad-server:8000"]
+        labels:
+          environment: "production"
+          service: "triad-engine"

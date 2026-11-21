@@ -7,7 +7,7 @@
 [![Live Dashboard](https://img.shields.io/badge/live_dashboard-GitHub_Pages-blueviolet.svg)](https://chetan0246.github.io/triad-swarm/)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests Passing](https://img.shields.io/badge/tests-57%20passed-brightgreen.svg)](https://github.com/Chetan0246/triad-swarm/actions)
+[![Tests Passing](https://img.shields.io/badge/tests-72%20passed-brightgreen.svg)](https://github.com/Chetan0246/triad-swarm/actions)
 [![Token Savings](https://img.shields.io/badge/token%20savings-64.5%25-brightgreen.svg)](#-empirical-benchmark-results)
 [![Verification Cost](https://img.shields.io/badge/verification%20tokens-0%20tokens-cyan.svg)](#-the-core-philosophy-why-most-swarms-fail)
 
@@ -214,6 +214,8 @@ Benchmarked on an end-to-end Telemetry & Analytics Pipeline (Storage layer, Wind
 | :--- | :--- | :--- |
 | `triad new "<prompt>"` | Synthesizes WorkloadSpec and optionally builds code | `triad new "Add async cache" --run` |
 | `triad run <spec.json>` | Executes workload DAG with isolated parallel workers | `triad run workload.json --concurrency 4` |
+| `triad serve` | Launches production REST & SSE daemon with metrics | `triad serve --host 0.0.0.0 --port 8000` |
+| `triad status <job_id>` | Queries status and metrics of a running/completed job | `triad status job-48efeadcbfe0` |
 | `triad repomap [path]` | Extracts bounded AST symbols (<1,000 tokens) | `triad repomap triad/core` |
 | `triad search "<query>"`| Searches web using TinyFish or free fallback | `triad search "FastAPI middleware"` |
 | `triad fetch "<url>"` | Fetches and cleans web content to markdown | `triad fetch "https://example.com"` |
@@ -225,11 +227,74 @@ Benchmarked on an end-to-end Telemetry & Analytics Pipeline (Storage layer, Wind
 
 ---
 
+## 🏭 Production Deployment & Cloud Architecture
+
+Triad Swarm is built for production operations, providing out-of-the-box infrastructure for Kubernetes, Docker Compose, Prometheus observability, and hardened process isolation.
+
+### 1. Production Daemon & REST API (`triad serve`)
+
+Launch Triad Swarm as a high-concurrency microservice daemon:
+```bash
+triad serve --host 0.0.0.0 --port 8000 --log-format json
+```
+
+Key endpoints:
+- `POST /api/v1/jobs` - Submit asynchronous or synchronous multi-agent workloads.
+- `GET /api/v1/jobs/{job_id}` - Query job execution lifecycle, token metrics, and generated artifacts.
+- `GET /api/v1/jobs/{job_id}/stream` - Real-time Server-Sent Events (SSE) streaming execution events.
+- `POST /api/v1/jobs/{job_id}/cancel` - Gracefully cancel active jobs.
+- `GET /healthz` & `GET /readyz` - Kubernetes liveness and readiness probes.
+- `GET /metrics` - Prometheus OpenMetrics exposition.
+
+### 2. Docker Compose Production Stack
+
+Deploy Triad Swarm alongside Prometheus and pre-configured Grafana dashboards:
+```bash
+docker compose -f docker-compose.prod.yml up -d
+```
+- **Triad Engine API:** `http://localhost:8000`
+- **Prometheus Metrics:** `http://localhost:9090`
+- **Grafana Dashboard:** `http://localhost:3000` (User: `admin`, Pass: `triadadmin`)
+
+### 3. Kubernetes Deployment (`k8s/`)
+
+Deploy to any Kubernetes cluster with security hardening, horizontal pod autoscaling, and zero-downtime rolling updates:
+```bash
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/secret.yaml.template
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/hpa.yaml
+kubectl apply -f k8s/ingress.yaml
+```
+
+**Security Context & Resource Limits:**
+- Unprivileged non-root user (`UID 10001: triad`).
+- All Linux capabilities dropped (`drop: [ALL]`).
+- Strict POSIX process limits: Memory ceiling via `RLIMIT_AS`, CPU time limits via `RLIMIT_CPU`, and configurable outbound network gating to prevent data exfiltration.
+
+### 4. Enterprise Observability & Structured Logging
+
+Triad Swarm emits single-line JSON logs formatted for Datadog, Grafana Loki, AWS CloudWatch, and Vector with automated correlation IDs:
+```json
+{
+  "timestamp": "2026-11-21T15:02:12Z",
+  "level": "INFO",
+  "logger": "triad.server.api",
+  "message": "Job job-48efeadcbfe0 completed in 2.05s",
+  "job_id": "job-48efeadcbfe0",
+  "metrics": { "total_tokens": 3001, "zero_token_verifications": 4 }
+}
+```
+
+---
+
 ## 🧪 Running Tests
 
 ```bash
 pytest -v
-# 52 unit and integration tests passing in ~18s
+# 72 unit, integration, server, and security tests passing in ~40s
 ```
 
 ---

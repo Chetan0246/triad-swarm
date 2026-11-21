@@ -108,7 +108,9 @@ class TriadEngine:
         failed_slices: Set[str] = set()
 
         # Step 3: Reactive Parallel Streaming Fan-Out
-        async def run_slice_task(slice_item: TaskSlice, index: int) -> Tuple[Optional[ExecutionResult], Optional[VerificationResult], Optional[IsolatedSandbox], float]:
+        async def run_slice_task(
+            slice_item: TaskSlice, index: int
+        ) -> Tuple[Optional[ExecutionResult], Optional[VerificationResult], Optional[IsolatedSandbox], float]:
             try:
                 # Wait for all direct upstream dependencies to complete successfully
                 for dep_id in slice_item.dependencies:
@@ -125,7 +127,9 @@ class TriadEngine:
                 exec_res, verif_res, sand, elapsed = await self._process_slice_with_concurrency(
                     task_slice=slice_item,
                     worker_index=index,
-                    upstream_sandboxes=[verified_sandboxes[d] for d in slice_item.dependencies if d in verified_sandboxes],
+                    upstream_sandboxes=[
+                        verified_sandboxes[d] for d in slice_item.dependencies if d in verified_sandboxes
+                    ],
                 )
 
                 if sand is not None:
@@ -143,10 +147,7 @@ class TriadEngine:
                 slice_events[slice_item.slice_id].set()
                 raise
 
-        worker_tasks = [
-            run_slice_task(slice_item, idx)
-            for idx, slice_item in enumerate(slices)
-        ]
+        worker_tasks = [run_slice_task(slice_item, idx) for idx, slice_item in enumerate(slices)]
 
         try:
             # Slices run reactively as soon as their dependencies are ready
@@ -159,6 +160,7 @@ class TriadEngine:
                 if isinstance(res, Exception) or res is None:
                     if isinstance(res, Exception):
                         import traceback
+
                         print(f"Error executing slice task: {res!r}", file=sys.stderr)
                         traceback.print_exception(res, file=sys.stderr)
                     continue
@@ -176,9 +178,7 @@ class TriadEngine:
 
         total_wall_clock = time.perf_counter() - start_time
         speedup = (
-            cumulative_worker_time / total_wall_clock
-            if total_wall_clock > 0 and cumulative_worker_time > 0
-            else 1.0
+            cumulative_worker_time / total_wall_clock if total_wall_clock > 0 and cumulative_worker_time > 0 else 1.0
         )
         success_rate = (successful_slices / len(slices)) * 100.0 if slices else 0.0
 
@@ -223,7 +223,7 @@ class TriadEngine:
         """Acquire semaphore and execute worker implementation + verification loop with artifact cascading."""
         async with self.semaphore:
             worker_t0 = time.perf_counter()
-            worker_id = f"worker_{worker_index+1}_{task_slice.slice_id}"
+            worker_id = f"worker_{worker_index + 1}_{task_slice.slice_id}"
             worker = WorkerAgent(worker_id=worker_id, llm=self.worker_llm, tracker=self.tracker)
 
             sandbox = IsolatedSandbox(
