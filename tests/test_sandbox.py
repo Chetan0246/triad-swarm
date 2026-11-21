@@ -33,6 +33,20 @@ def test_sandbox_allowed_files_restriction():
             sb.write_file("unauthorized.py", "y = 2")
 
 
+def test_sandbox_allowed_files_none_vs_empty():
+    # allowed_files=None is unrestricted
+    with IsolatedSandbox(cleanup=True, allowed_files=None) as sb:
+        assert sb.is_file_allowed("any_file.py") is True
+        sb.write_file("any_file.py", "a = 1")
+        assert sb.read_file("any_file.py") == "a = 1"
+
+    # allowed_files=[] is deny-all
+    with IsolatedSandbox(cleanup=True, allowed_files=[]) as sb:
+        assert sb.is_file_allowed("any_file.py") is False
+        with pytest.raises(PermissionError):
+            sb.write_file("any_file.py", "a = 1")
+
+
 def test_sandbox_exec_command():
     with IsolatedSandbox(cleanup=True) as sb:
         code = "print('Triad Output')"

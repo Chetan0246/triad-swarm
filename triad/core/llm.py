@@ -6,6 +6,7 @@ import json
 import os
 import re
 import time
+import urllib.parse
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -332,22 +333,29 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             or os.environ.get("RIVER_API_BASE")
             or os.environ.get("OPENAI_BASE_URL")
             or os.environ.get("OLLAMA_HOST")
-            or "http://localhost:11434/v1"
-        ).rstrip("/")
-        if not raw_base.endswith("/chat/completions"):
-            self.endpoint = f"{raw_base}/chat/completions"
-        else:
-            self.endpoint = raw_base
-        self.api_key = api_key or os.environ.get("RIVER_API_KEY") or os.environ.get("OPENAI_API_KEY") or "local-token"
-        self.model = (
-            model
-            or os.environ.get("RIVER_MODEL")
-            or (
-                "deepseek-ai/DeepSeek-V4.1-Flash-1017"
-                if "river.ai" in self.endpoint or os.environ.get("RIVER_API_KEY")
-                else "qwen2.5-coder:7b"
-            )
         )
+        if not raw_base:
+            # A configured River key implies the River cloud endpoint, while a
+            # bare local setup should target Ollama's OpenAI-compatible server.
+            raw_base = "https://api.river.ai/v1" if os.environ.get("RIVER_API_KEY") else "http://localhost:11434/v1"
+        raw_base = raw_base.strip().rstrip("/")
+        if not raw_base.startswith(("http://", "https://")):
+            raw_base = f"http://{raw_base}"
+
+        if raw_base.endswith("/chat/completions"):
+            self.endpoint = raw_base
+        else:
+            parsed = urllib.parse.urlparse(raw_base)
+            if parsed.path in ("", "/"):
+                # Host-only bases such as OLLAMA_HOST=localhost:11434
+                # require the OpenAI-compatible /v1 prefix.
+                raw_base = f"{raw_base}/v1"
+            self.endpoint = f"{raw_base}/chat/completions"
+
+        self.api_key = api_key or os.environ.get("RIVER_API_KEY") or os.environ.get("OPENAI_API_KEY") or "local-token"
+        is_river = "river.ai" in self.endpoint
+        default_model = "deepseek-ai/DeepSeek-V4.1-Flash-1017" if is_river else "qwen2.5-coder:7b"
+        self.model = model or os.environ.get("RIVER_MODEL" if is_river else "OLLAMA_MODEL") or default_model
 
     async def generate(
         self,
@@ -464,10 +472,23 @@ def get_llm_provider(
     elif choice in ("river", "ollama", "local", "vllm", "openai-compatible") or (
         not choice and os.environ.get("RIVER_API_KEY")
     ):
+        if choice == "ollama":
+            resolved_base = base_url or os.environ.get("OLLAMA_HOST")
+            resolved_key = api_key or "ollama"
+            resolved_model = model or os.environ.get("OLLAMA_MODEL") or "qwen2.5-coder:7b"
+        elif choice == "river":
+            resolved_base = base_url or os.environ.get("RIVER_API_BASE", "https://api.river.ai/v1")
+            resolved_key = api_key or os.environ.get("RIVER_API_KEY")
+            resolved_model = model or os.environ.get("RIVER_MODEL", "deepseek-ai/DeepSeek-V4.1-Flash-1017")
+        else:
+            resolved_base = base_url or os.environ.get("RIVER_API_BASE") or os.environ.get("OPENAI_BASE_URL")
+            resolved_key = api_key or os.environ.get("RIVER_API_KEY") or os.environ.get("OPENAI_API_KEY")
+            resolved_model = model or os.environ.get("RIVER_MODEL")
+
         provider = OpenAICompatibleProvider(
-            base_url=base_url or os.environ.get("RIVER_API_BASE"),
-            api_key=api_key or os.environ.get("RIVER_API_KEY"),
-            model=model or os.environ.get("RIVER_MODEL", "deepseek-ai/DeepSeek-V4.1-Flash-1017"),
+            base_url=resolved_base,
+            api_key=resolved_key,
+            model=resolved_model,
         )
     elif (choice == "gemini" or not choice) and (api_key or os.environ.get("GEMINI_API_KEY")):
         provider = GeminiProvider(api_key=api_key, model=model or os.environ.get("GEMINI_MODEL", "gemini-3.8-flash"))

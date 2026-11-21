@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from pydantic import ValidationError
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -62,7 +63,11 @@ async def run_workload_cmd(
     except json.JSONDecodeError as e:
         console.print(f"[bold red]Error:[/bold red] Workload file is not valid JSON: {e}")
         sys.exit(1)
-    spec = WorkloadSpec(**data)
+    try:
+        spec = WorkloadSpec(**data)
+    except ValidationError as e:
+        console.print(f"[bold red]Error:[/bold red] Workload file does not match the WorkloadSpec schema: {e}")
+        sys.exit(1)
 
     console.print(f"🚀 [bold]Starting workload:[/bold] [yellow]{spec.name}[/yellow]")
 
@@ -275,7 +280,11 @@ async def graph_workload_cmd(workload_path: str, mermaid: bool) -> None:
     except json.JSONDecodeError as e:
         console.print(f"[bold red]Error:[/bold red] Workload file is not valid JSON: {e}")
         sys.exit(1)
-    spec = WorkloadSpec(**data)
+    try:
+        spec = WorkloadSpec(**data)
+    except ValidationError as e:
+        console.print(f"[bold red]Error:[/bold red] Workload file does not match the WorkloadSpec schema: {e}")
+        sys.exit(1)
 
     mock_llm = MockLLMProvider()
     populate_mock_telemetry_defaults(mock_llm)

@@ -37,7 +37,7 @@ jobs:
         source .venv/bin/activate
         ruff check triad/ tests/ examples/
 
-    - name: Run Test Suite (52 tests)
+    - name: Run Test Suite
       run: |
         source .venv/bin/activate
         pytest -v

@@ -108,3 +108,54 @@ def test_cancel_non_existent_job():
 def test_stream_job_events_not_found():
     response = client.get("/api/v1/jobs/job-fake-id/stream")
     assert response.status_code == 404
+
+
+def test_submit_job_via_prompt_synchronous():
+    # Tests the prompt path: SpecGeneratorAgent with LLM generates WorkloadSpec, executes job
+    res = client.post(
+        "/api/v1/jobs",
+        json={
+            "prompt": "Build a simple math calculation service with add and multiply functions",
+            "name": "math-service",
+            "provider_name": "mock",
+            "async_mode": False,
+            "concurrency": 2,
+        },
+    )
+    assert res.status_code == 202
+    job_data = res.json()
+    assert job_data["status"] == JobStatus.COMPLETED.value
+    assert job_data["name"] == "math-service"
+    assert job_data["metrics"] is not None
+    assert "cache_hits" in job_data["metrics"]
+
+
+def test_submit_invalid_workload_spec():
+    res = client.post(
+        "/api/v1/jobs",
+        json={
+            "workload_spec": {"invalid": "missing required fields"},
+            "provider_name": "mock",
+        },
+    )
+    assert res.status_code == 400
+    assert "Invalid workload_spec" in res.json()["detail"]
+
+
+def test_stream_completed_job_does_not_hang():
+    # Submit job and complete it
+    submit_res = client.post(
+        "/api/v1/jobs",
+        json={
+            "prompt": "Build a health ping utility",
+            "name": "ping-job",
+            "provider_name": "mock",
+            "async_mode": False,
+        },
+    )
+    job_id = submit_res.json()["job_id"]
+
+    # Now subscribe to completed job - must terminate without hanging
+    with client.stream("GET", f"/api/v1/jobs/{job_id}/stream") as stream:
+        lines = list(stream.iter_lines())
+        assert len(lines) >= 1

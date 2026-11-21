@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import sys
 import time
+import traceback
 from typing import Dict, List, Optional, Set, Tuple
 
 from triad.agents.architect import ArchitectAgent
@@ -39,15 +40,19 @@ class TriadEngine:
     ):
         self.enable_cache = enable_cache
         self.cache_manager = PromptCacheManager(cache_dir=cache_dir) if enable_cache else None
+        self.llm: BaseLLMProvider
 
         if router:
             self.architect_llm = router.get_architect_llm()
             self.worker_llm = router.get_worker_llm()
             self.llm = self.architect_llm
+            # Share the router's cache manager so cache statistics are not split
+            # across two independent caches.
+            self.cache_manager = getattr(router, "cache_manager", None) or self.cache_manager
         else:
             raw_llm = llm or get_llm_provider()
             if enable_cache and not isinstance(raw_llm, CachedLLMProvider):
-                self.llm: BaseLLMProvider = CachedLLMProvider(raw_llm, cache=self.cache_manager)
+                self.llm = CachedLLMProvider(raw_llm, cache=self.cache_manager)
             else:
                 self.cache_manager = getattr(raw_llm, "cache", None) or self.cache_manager
                 self.llm = raw_llm
@@ -157,12 +162,9 @@ class TriadEngine:
             cumulative_worker_time = 0.0
 
             for _idx, res in enumerate(results):
-                if isinstance(res, Exception) or res is None:
-                    if isinstance(res, Exception):
-                        import traceback
-
-                        print(f"Error executing slice task: {res!r}", file=sys.stderr)
-                        traceback.print_exception(res, file=sys.stderr)
+                if isinstance(res, BaseException):
+                    print(f"Error executing slice task: {res!r}", file=sys.stderr)
+                    traceback.print_exception(type(res), res, res.__traceback__, file=sys.stderr)
                     continue
                 _exec_res, verif_res, sand, worker_elapsed = res
                 cumulative_worker_time += worker_elapsed
@@ -221,6 +223,9 @@ class TriadEngine:
         upstream_sandboxes: Optional[List[IsolatedSandbox]] = None,
     ) -> Tuple[Optional[ExecutionResult], Optional[VerificationResult], Optional[IsolatedSandbox], float]:
         """Acquire semaphore and execute worker implementation + verification loop with artifact cascading."""
+        if not task_slice.slice_id or not task_slice.target_files:
+            raise ValueError(f"Task slice '{task_slice.slice_id}' is invalid: target_files cannot be empty.")
+
         async with self.semaphore:
             worker_t0 = time.perf_counter()
             worker_id = f"worker_{worker_index + 1}_{task_slice.slice_id}"
@@ -231,59 +236,72 @@ class TriadEngine:
                 allowed_files=task_slice.target_files + list(task_slice.acceptance_tests.keys()),
             )
 
-            # Artifact Cascading: mount upstream verified dependencies into this sandbox
-            if upstream_sandboxes:
-                for up_sand in upstream_sandboxes:
-                    sandbox.mount_artifacts_from(up_sand)
+            try:
+                # Artifact Cascading: mount upstream verified dependencies into this sandbox
+                if upstream_sandboxes:
+                    for up_sand in upstream_sandboxes:
+                        sandbox.mount_artifacts_from(up_sand)
 
-            error_trace: Optional[str] = None
-            exec_res: Optional[ExecutionResult] = None
-            verif_res: Optional[VerificationResult] = None
+                error_trace: Optional[str] = None
+                exec_res: Optional[ExecutionResult] = None
+                verif_res: Optional[VerificationResult] = None
 
-            span = self.tracer.start_span(
-                name=f"Slice {task_slice.slice_id}",
-                phase="worker",
-                agent_id=worker_id,
-                metadata={"title": task_slice.title},
-            )
-
-            for attempt in range(1, self.max_healing_attempts + 1):
-                exec_res = await worker.execute_slice(
-                    task_slice=task_slice,
-                    sandbox=sandbox,
-                    previous_error=error_trace,
-                    iteration=attempt,
+                span = self.tracer.start_span(
+                    name=f"Slice {task_slice.slice_id}",
+                    phase="worker",
+                    agent_id=worker_id,
+                    metadata={"title": task_slice.title},
                 )
 
-                if exec_res.status != "success":
-                    error_trace = exec_res.error_message or "Worker execution failed"
-                    continue
+                for attempt in range(1, self.max_healing_attempts + 1):
+                    exec_res = await worker.execute_slice(
+                        task_slice=task_slice,
+                        sandbox=sandbox,
+                        previous_error=error_trace,
+                        iteration=attempt,
+                    )
 
-                # Run Deterministic Verifier (0 Tokens)
-                verif_res = self.verifier.verify(task_slice, sandbox, timeout_seconds=task_slice.timeout_seconds)
-                if verif_res.passed:
-                    break
-                else:
-                    # Use pruned traceback to reduce token consumption on healing
-                    error_trace = verif_res.pruned_traceback or verif_res.failure_trace
+                    if exec_res.status != "success":
+                        error_trace = exec_res.error_message or "Worker execution failed"
+                        continue
 
-            if exec_res is None:
-                # Constructor validation guarantees max_healing_attempts >= 1 and that
-                # execute_slice returns or raises; this is a defensive fallback.
-                exec_res = ExecutionResult(
-                    slice_id=task_slice.slice_id,
-                    worker_id=worker_id,
-                    status="error",
-                    error_message="Worker produced no execution result",
+                    # Run Deterministic Verifier (0 Tokens) off the event loop so
+                    # concurrent slices are not serialized by pytest subprocesses.
+                    verif_res = await asyncio.to_thread(
+                        self.verifier.verify,
+                        task_slice,
+                        sandbox,
+                        timeout_seconds=task_slice.timeout_seconds,
+                    )
+                    if verif_res.passed:
+                        break
+                    else:
+                        # Use pruned traceback to reduce token consumption on healing
+                        error_trace = verif_res.pruned_traceback or verif_res.failure_trace
+
+                if exec_res is None:
+                    # Constructor validation guarantees max_healing_attempts >= 1 and that
+                    # execute_slice returns or raises; this is a defensive fallback.
+                    exec_res = ExecutionResult(
+                        slice_id=task_slice.slice_id,
+                        worker_id=worker_id,
+                        status="error",
+                        error_message="Worker produced no execution result",
+                    )
+
+                worker_elapsed = time.perf_counter() - worker_t0
+                span.finish(
+                    status="success" if verif_res is not None and verif_res.passed else "failure",
+                    metadata={"attempts": exec_res.iterations},
                 )
 
-            worker_elapsed = time.perf_counter() - worker_t0
-            span.finish(
-                status="success" if verif_res is not None and verif_res.passed else "failure",
-                metadata={"attempts": exec_res.iterations},
-            )
-
-            # verif_res can be None when every attempt ended before verification
-            # (worker returned non-success on all attempts); the caller treats
-            # this as a failed slice via `verif_res and verif_res.passed`.
-            return exec_res, verif_res, sandbox, worker_elapsed
+                # verif_res can be None when every attempt ended before verification
+                # (worker returned non-success on all attempts); the caller treats
+                # this as a failed slice via `verif_res and verif_res.passed`.
+                return exec_res, verif_res, sandbox, worker_elapsed
+            except BaseException:
+                # The caller only tracks sandboxes that are returned successfully,
+                # so close this one here to avoid leaking temp directories on
+                # cancellation or unexpected errors.
+                sandbox.close()
+                raise

@@ -13,9 +13,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 COPY pyproject.toml uv.lock README.md /build/
+# The package source must be present for the build backend to locate `triad`.
+COPY triad /build/triad
+# Install a regular (non-editable) wheel: an editable install would point the
+# runtime venv at /build, which does not exist in the final stage.
 RUN uv venv /opt/venv && \
     . /opt/venv/bin/activate && \
-    uv pip install --no-cache -e .
+    uv pip install --no-cache .
 
 # Stage 2: Hardened, Non-Root Production Runtime
 FROM python:3.12-slim AS runner

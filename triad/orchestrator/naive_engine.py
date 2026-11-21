@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import shlex
+import sys
 import time
 from typing import List, Optional
 
@@ -103,7 +105,7 @@ class NaiveBaselineEngine:
                 for test_path, test_code in task_slice.acceptance_tests.items():
                     sandbox.write_file(test_path, test_code)
                 test_files = list(task_slice.acceptance_tests.keys())
-                sandbox.exec_command(f"python3 -m pytest {' '.join(test_files)} -q --tb=short")
+                sandbox.exec_command(shlex.join([sys.executable, "-m", "pytest", *test_files, "-q", "--tb=short"]))
 
             chat_history.append(f"Critic Review:\n{critic_resp.content[:300]}...")
             tasks_succeeded += 1

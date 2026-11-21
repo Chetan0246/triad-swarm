@@ -6,6 +6,7 @@ syntax contracts and lightweight test runner invocation (Vitest, Jest, Node test
 
 from __future__ import annotations
 
+import shlex
 import shutil
 from typing import List
 
@@ -122,10 +123,10 @@ class PolyglotVerifier:
             has_npm = shutil.which("npm") is not None
 
             if has_vitest:
-                cmd = f"vitest run {' '.join(test_files)}"
+                cmd = shlex.join(["vitest", "run", *test_files])
             elif has_node:
                 # Use node native test runner if JS/TS test files present
-                cmd = f"node --test {' '.join(test_files)}"
+                cmd = shlex.join(["node", "--test", *test_files])
             elif has_npm:
                 cmd = "npm test --if-present"
             else:

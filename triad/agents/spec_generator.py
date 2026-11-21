@@ -6,13 +6,13 @@ Synthesizes acceptance criteria, required module boundaries, and interface contr
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Optional
 
 from triad.agents.base import BaseAgent
 from triad.core.llm import BaseLLMProvider, MockLLMProvider
 from triad.core.models import WorkloadSpec
+from triad.core.parsing import extract_json
 from triad.core.token_tracker import TokenTracker
 
 SPEC_GENERATOR_SYSTEM_PROMPT = """You are the Lead Requirements Architect in Triad Swarm.
@@ -102,12 +102,10 @@ class SpecGeneratorAgent(BaseAgent):
 
     def _parse_spec(self, content: str, fallback_prompt: str, suggested_name: Optional[str] = None) -> WorkloadSpec:
         """Safely parse LLM JSON into WorkloadSpec."""
-        # Extract JSON from code fences if present anywhere in content
-        json_match = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", content)
-        clean = json_match.group(1).strip() if json_match else content.strip()
-
         try:
-            data = json.loads(clean)
+            data = extract_json(content)
+            if not isinstance(data, dict):
+                raise ValueError("WorkloadSpec payload must be a JSON object.")
             criteria = data.get("acceptance_criteria")
             if not criteria or not isinstance(criteria, list):
                 criteria = ["Feature implemented and verified"]

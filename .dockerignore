@@ -5,5 +5,10 @@ __pycache__
 .pytest_cache
 .ruff_cache
 .triad_cache
+out
 dist
 *.egg-info
+.env
+.env.*
+*.env
+*.log

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import json
-import re
 from typing import List, Optional
 
 from triad.agents.base import BaseAgent
 from triad.core.llm import BaseLLMProvider
 from triad.core.models import InterfaceContract, TaskSlice, WorkloadSpec
+from triad.core.parsing import extract_json
 from triad.core.token_tracker import TokenTracker
 
 ARCHITECT_SYSTEM_PROMPT = """You are the Architect Agent in the Triad Swarm.
@@ -52,6 +51,18 @@ You MUST respond with a valid JSON object matching this schema:
   ]
 }
 """
+
+
+def _coerce_int(value: object, default: int) -> int:
+    """Best-effort integer coercion for untrusted LLM output."""
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float, str)):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+    return default
 
 
 class ArchitectAgent(BaseAgent):
@@ -98,16 +109,9 @@ class ArchitectAgent(BaseAgent):
 
     def _parse_slices(self, content: str) -> List[TaskSlice]:
         """Safely extract and validate TaskSlice models from LLM JSON response."""
-        json_match = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", content)
-        clean = json_match.group(1).strip() if json_match else content.strip()
-
-        if clean.startswith("```"):
-            clean = re.sub(r"^```[a-zA-Z]*\n", "", clean)
-            clean = re.sub(r"\n```$", "", clean)
-
         try:
-            data = json.loads(clean)
-        except json.JSONDecodeError as e:
+            data = extract_json(content)
+        except ValueError as e:
             raise ValueError(f"Architect produced unparseable JSON for TaskSlices: {e}") from e
 
         if isinstance(data, dict):
@@ -128,7 +132,23 @@ class ArchitectAgent(BaseAgent):
             contract_data = s.get("contract") or {}
             if not isinstance(contract_data, dict):
                 raise ValueError(f"Architect slice '{s.get('slice_id')}' has a non-object contract.")
+
             target_files = s.get("target_files") or []
+            if isinstance(target_files, str):
+                target_files = [target_files]
+            elif not isinstance(target_files, list):
+                target_files = []
+            target_files = [f for f in target_files if isinstance(f, str)]
+
+            acceptance_tests = s.get("acceptance_tests") or {}
+            if not isinstance(acceptance_tests, dict):
+                acceptance_tests = {}
+            dependencies = s.get("dependencies") or []
+            if isinstance(dependencies, str):
+                dependencies = [dependencies]
+            elif not isinstance(dependencies, list):
+                dependencies = []
+
             contract = InterfaceContract(
                 module_path=contract_data.get("module_path", target_files[0] if target_files else ""),
                 exported_symbols=contract_data.get("exported_symbols", []),
@@ -147,8 +167,10 @@ class ArchitectAgent(BaseAgent):
                     description=s["description"],
                     target_files=target_files,
                     contract=contract,
-                    acceptance_tests=s.get("acceptance_tests") or {},
-                    dependencies=s.get("dependencies") or [],
+                    acceptance_tests=acceptance_tests,
+                    dependencies=dependencies,
+                    priority=_coerce_int(s.get("priority", 1), 1),
+                    timeout_seconds=_coerce_int(s.get("timeout_seconds", 30), 30),
                 )
             )
 

@@ -81,14 +81,25 @@ class ModelRouter:
             return MockLLMProvider()
 
         if provider_name in ("river", "ollama", "local", "vllm", "openai-compatible"):
-            default_model = (
-                "deepseek-ai/DeepSeek-V4.1-Flash-1017"
-                if (provider_name == "river" or os.environ.get("RIVER_API_KEY"))
-                else "qwen2.5-coder:7b"
-            )
+            # Resolve the endpoint from the provider that was actually requested.
+            # Mixing RIVER_API_BASE into an explicit Ollama spec silently routed
+            # local traffic to the River cloud endpoint.
+            if provider_name == "river":
+                base_url = os.environ.get("RIVER_API_BASE")
+                api_key = os.environ.get("RIVER_API_KEY")
+                default_model = "deepseek-ai/DeepSeek-V4.1-Flash-1017"
+            elif provider_name == "ollama":
+                base_url = os.environ.get("OLLAMA_HOST")
+                api_key = None
+                default_model = "qwen2.5-coder:7b"
+            else:
+                base_url = os.environ.get("OPENAI_BASE_URL") or os.environ.get("RIVER_API_BASE")
+                api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("RIVER_API_KEY")
+                default_model = "qwen2.5-coder:7b"
+
             return OpenAICompatibleProvider(
-                base_url=os.environ.get("RIVER_API_BASE") or os.environ.get("OPENAI_BASE_URL"),
-                api_key=os.environ.get("RIVER_API_KEY") or os.environ.get("OPENAI_API_KEY"),
+                base_url=base_url,
+                api_key=api_key,
                 model=model_name or default_model,
             )
 

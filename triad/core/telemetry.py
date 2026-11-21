@@ -67,14 +67,16 @@ class SwarmTracer:
         Can be dragged directly into chrome://tracing or https://ui.perfetto.dev.
         """
         trace_events = []
+        thread_ids: Dict[str, int] = {}
         with self._lock:
             for s in self._spans:
                 # Ph: 'X' is Complete event (start and duration in microseconds)
                 ts_micro = int((s.start_time - self.start_wall_clock) * 1_000_000)
                 dur_micro = int(s.duration_seconds * 1_000_000)
 
-                # Map phase to process or thread
-                tid = s.agent_id
+                # Chrome Trace Event Format requires integer thread IDs; assign a
+                # stable integer per agent for this export.
+                tid = thread_ids.setdefault(s.agent_id, len(thread_ids) + 1)
                 trace_events.append(
                     {
                         "name": s.name,

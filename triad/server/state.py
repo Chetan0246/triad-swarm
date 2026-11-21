@@ -24,6 +24,10 @@ class JobStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+TERMINAL_STATUSES = {JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED}
+TERMINAL_EVENTS = {"job_completed", "job_failed", "job_cancelled"}
+
+
 class JobEvent(BaseModel):
     timestamp: float = Field(default_factory=time.time)
     event_type: str
@@ -111,20 +115,31 @@ class JobManager:
         if not record:
             return
 
+        # Snapshot and replay existing events
+        existing_events = list(record.events)
+        for existing in existing_events:
+            yield f"data: {existing.model_dump_json()}\n\n"
+
+        # Return immediately if record is already in terminal status (avoid SSE hang)
+        if record.status in TERMINAL_STATUSES:
+            return
+
         queue: asyncio.Queue[JobEvent] = asyncio.Queue()
         if job_id not in self._subscribers:
             self._subscribers[job_id] = []
         self._subscribers[job_id].append(queue)
 
-        # First emit existing events to catch up
-        for existing in record.events:
-            yield f"data: {existing.model_dump_json()}\n\n"
-
         try:
+            if record.status in TERMINAL_STATUSES:
+                while not queue.empty():
+                    evt = queue.get_nowait()
+                    yield f"data: {evt.model_dump_json()}\n\n"
+                return
+
             while True:
                 evt = await queue.get()
                 yield f"data: {evt.model_dump_json()}\n\n"
-                if evt.event_type in {"job_completed", "job_failed", "job_cancelled"}:
+                if evt.event_type in TERMINAL_EVENTS:
                     break
         finally:
             if job_id in self._subscribers and queue in self._subscribers[job_id]:

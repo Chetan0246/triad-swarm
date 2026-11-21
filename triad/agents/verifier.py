@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import shlex
+import sys
+
 from triad.core.contracts import ASTContractValidator, TracebackPruner
 from triad.core.models import InterfaceContract, TaskSlice, VerificationResult
 from triad.core.sandbox import IsolatedSandbox
@@ -95,7 +98,9 @@ class DeterministicVerifier:
         # Phase 3: Execute Acceptance Tests in Sandbox (Zero tokens)
         test_files = list(task_slice.acceptance_tests.keys())
         if test_files:
-            cmd = f"python3 -m pytest {' '.join(test_files)} -q --tb=short"
+            # Use the interpreter running Triad so the active virtualenv's pytest
+            # is used, and quote paths to prevent shell injection from LLM output.
+            cmd = shlex.join([sys.executable, "-m", "pytest", *test_files, "-q", "--tb=short"])
             retcode, stdout, stderr = sandbox.exec_command(cmd, timeout_seconds=timeout_seconds)
 
             if retcode != 0:

@@ -10,10 +10,11 @@ from typing import Any, Dict, List, Optional
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from triad import __version__
 from triad.agents.spec_generator import SpecGeneratorAgent
+from triad.core.cache import PromptCacheManager
 from triad.core.llm import (
     MockLLMProvider,
     populate_mock_telemetry_defaults,
@@ -35,11 +36,13 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Enable CORS for dashboards, monitoring frontends, and external microservices
+# Enable CORS for dashboards, monitoring frontends, and external microservices.
+# The API is token/header based rather than cookie based, so credentials must be
+# disabled: browsers reject a wildcard origin combined with credentials.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -47,16 +50,30 @@ app.add_middleware(
 SERVER_START_TIME = time.time()
 
 
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class CreateJobRequest(BaseModel):
     name: Optional[str] = None
     prompt: Optional[str] = None
     workload_spec: Optional[Dict[str, Any]] = None
-    concurrency: int = Field(default=4, ge=1, le=32)
+    concurrency: int = Field(default_factory=lambda: _env_int("TRIAD_CONCURRENCY", 4), ge=1, le=32)
     provider_name: str = "mock"
     architect_model: Optional[str] = None
     worker_model: Optional[str] = None
     output_dir: Optional[str] = None
-    enable_cache: bool = True
+    enable_cache: bool = Field(default_factory=lambda: _env_bool("TRIAD_ENABLE_CACHE", True))
     async_mode: bool = True
 
 
@@ -120,11 +137,16 @@ async def _execute_swarm_job(job_id: str, req: CreateJobRequest, spec: WorkloadS
     )
 
     try:
-        # Configure model routing
+        # Configure model routing with a shared cache so the engine and router
+        # do not maintain two independent caches.
+        cache_manager = (
+            PromptCacheManager(cache_dir=os.environ.get("TRIAD_CACHE_DIR") or None) if req.enable_cache else None
+        )
         router = ModelRouter(
             architect_spec=req.architect_model or req.provider_name,
             worker_spec=req.worker_model or req.provider_name,
             enable_cache=req.enable_cache,
+            cache_manager=cache_manager,
         )
 
         arch_llm = router.get_architect_llm()
@@ -147,6 +169,10 @@ async def _execute_swarm_job(job_id: str, req: CreateJobRequest, spec: WorkloadS
         record.status = JobStatus.COMPLETED
         record.completed_at = time.time()
         record.duration_seconds = record.completed_at - record.started_at
+        cache_hits_val = getattr(metrics, "cache_hits", 0)
+        if cache_hits_val == 0 and engine.cache_manager:
+            cache_hits_val = getattr(engine.cache_manager, "total_hits", 0)
+
         record.metrics = {
             "wall_clock_seconds": metrics.wall_clock_seconds,
             "total_tokens": metrics.total_tokens,
@@ -154,14 +180,16 @@ async def _execute_swarm_job(job_id: str, req: CreateJobRequest, spec: WorkloadS
             "tasks_total": metrics.tasks_total,
             "tasks_succeeded": metrics.tasks_succeeded,
             "estimated_cost_usd": metrics.estimated_cost_usd,
-            "cache_hits": getattr(engine.cache_manager, "hits", 0) if engine.cache_manager else 0,
+            "cache_hits": cache_hits_val,
         }
 
         # Update global Prometheus registry
         metrics_registry.record_job_completed(record.duration_seconds)
         phase_summary = engine.tracker.get_summary_by_phase()
         arch_tokens = int(phase_summary.get("architect", {}).get("total_tokens", 0))
-        worker_tokens = int(phase_summary.get("worker", {}).get("total_tokens", 0))
+        # Include healing/verifier phases in the worker token counter instead of
+        # only counting the literal "worker" phase.
+        worker_tokens = max(0, metrics.total_tokens - arch_tokens)
         metrics_registry.record_tokens("architect", arch_tokens)
         metrics_registry.record_tokens("worker", worker_tokens)
         for _ in range(metrics.zero_token_verifications):
@@ -182,12 +210,15 @@ async def _execute_swarm_job(job_id: str, req: CreateJobRequest, spec: WorkloadS
             record.metrics,
         )
     except asyncio.CancelledError:
-        record.status = JobStatus.CANCELLED
-        record.completed_at = time.time()
-        if record.started_at:
-            record.duration_seconds = record.completed_at - record.started_at
-        metrics_registry.record_job_cancelled()
-        await job_manager.emit_event(job_id, "job_cancelled", "Job cancelled during execution.")
+        # ``JobManager.cancel_job`` already marks the job cancelled and emits an
+        # event; avoid double-counting metrics and duplicating the event.
+        if record.status != JobStatus.CANCELLED:
+            record.status = JobStatus.CANCELLED
+            record.completed_at = time.time()
+            if record.started_at:
+                record.duration_seconds = record.completed_at - record.started_at
+            metrics_registry.record_job_cancelled()
+            await job_manager.emit_event(job_id, "job_cancelled", "Job cancelled during execution.")
     except Exception as e:
         record.status = JobStatus.FAILED
         record.completed_at = time.time()
@@ -209,10 +240,29 @@ async def submit_job(req: CreateJobRequest, background_tasks: BackgroundTasks) -
 
     # Generate workload spec from prompt if prompt was provided
     if req.prompt and not req.workload_spec:
-        gen = SpecGeneratorAgent()
-        spec = gen.generate(req.prompt, name=req.name or "dynamic-job")
+        router = ModelRouter(
+            architect_spec=req.architect_model or req.provider_name,
+            worker_spec=req.worker_model or req.provider_name,
+            enable_cache=req.enable_cache,
+        )
+        arch_llm = router.get_architect_llm()
+        raw_arch = getattr(arch_llm, "provider", arch_llm)
+        if isinstance(raw_arch, MockLLMProvider):
+            populate_mock_telemetry_defaults(raw_arch)
+
+        gen = SpecGeneratorAgent(llm=arch_llm)
+        try:
+            spec = await gen.generate_spec(
+                req.prompt,
+                suggested_name=req.name or "dynamic-job",
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Failed to generate workload spec from prompt: {exc}") from exc
     else:
-        spec = WorkloadSpec(**req.workload_spec)  # type: ignore
+        try:
+            spec = WorkloadSpec(**req.workload_spec)  # type: ignore[arg-type]
+        except (ValidationError, TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid workload_spec: {exc}") from exc
 
     record = job_manager.create_job(
         name=spec.name,

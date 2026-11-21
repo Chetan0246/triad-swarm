@@ -84,6 +84,13 @@ class RepoMapGenerator:
                     args_list.append(arg_str)
                 ret_ann = f" -> {ast.unparse(node.returns)}" if node.returns else ""
                 lines.append(f"  {is_async}def {node.name}({', '.join(args_list)}){ret_ann}: ...")
+            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                annotation = f": {ast.unparse(node.annotation)}" if node.annotation else ""
+                lines.append(f"  {node.target.id}{annotation} = ...")
+            elif isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id.isupper():
+                        lines.append(f"  {target.id} = ...")
 
         return lines
 

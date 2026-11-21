@@ -91,3 +91,57 @@ def test_traceback_pruner_compression():
     assert "AssertionError" in pruned
     assert len(pruned.splitlines()) <= 6
     assert len(pruned) < len(verbose_trace)
+
+
+def test_ast_annotated_assignment_exports():
+    code = (
+        "from typing import Final\n"
+        "MAX_SIZE: int = 100\n"
+        "API_VERSION: Final[str] = 'v1.0'\n"
+        "def process(): return MAX_SIZE\n"
+    )
+    contract = InterfaceContract(
+        module_path="constants.py",
+        exported_symbols=["MAX_SIZE", "API_VERSION", "process"],
+    )
+    is_valid, errors = ASTContractValidator.validate_code(code, contract)
+    assert is_valid, f"Expected valid, got: {errors}"
+    assert len(errors) == 0
+
+
+def test_ast_nested_forbidden_imports():
+    # Nested inside a function body
+    code = "def run_command(cmd: str):\n    import subprocess\n    return subprocess.run(cmd)\n"
+    contract = InterfaceContract(
+        module_path="worker.py",
+        exported_symbols=["run_command"],
+        forbidden_imports=["subprocess"],
+    )
+    is_valid, errors = ASTContractValidator.validate_code(code, contract)
+    assert not is_valid
+    assert any("Forbidden module imported: 'subprocess'" in e for e in errors)
+
+
+def test_ast_relative_import_from_none():
+    # from . import os or from . import helper where node.module is None
+    code = "from . import os\ndef helper(): return True\n"
+    contract = InterfaceContract(
+        module_path="submodule.py",
+        exported_symbols=["helper"],
+        forbidden_imports=["os"],
+    )
+    is_valid, errors = ASTContractValidator.validate_code(code, contract)
+    assert not is_valid
+    assert any("Forbidden module imported: 'os'" in e for e in errors)
+
+
+def test_ast_signature_parsing_with_defaults_args_kwargs():
+    code = "def calculate(value: float = 10.0, *args, **kwargs) -> float:\n    return value\n"
+    contract = InterfaceContract(
+        module_path="math_ops.py",
+        exported_symbols=["calculate"],
+        signatures={"calculate": "def calculate(value=10.0, *args, **kwargs) -> float"},
+    )
+    is_valid, errors = ASTContractValidator.validate_code(code, contract)
+    assert is_valid, f"Signature match failed: {errors}"
+    assert len(errors) == 0

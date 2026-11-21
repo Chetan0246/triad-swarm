@@ -103,10 +103,17 @@ class FreeWebEngine:
                 headers=headers,
             )
             if resp.status_code == 200:
-                links = re.findall(
-                    r"<a[^>]+rel=[\"']nofollow[\"'][^>]+href=[\"']([^\"']+)[\"'][^>]*>(.*?)</a>",
-                    resp.text,
-                )
+                # Attribute order is not guaranteed; locate rel/href independently
+                # instead of relying on a single order-sensitive regex.
+                links = []
+                for anchor in re.finditer(r"<a\b([^>]*)>(.*?)</a>", resp.text, re.IGNORECASE | re.DOTALL):
+                    attrs, title_html = anchor.groups()
+                    if "nofollow" not in attrs.lower():
+                        continue
+                    href_match = re.search(r"href=[\"']([^\"']+)[\"']", attrs, re.IGNORECASE)
+                    if href_match:
+                        links.append((href_match.group(1), title_html))
+
                 snippets = re.findall(
                     r"<td[^>]+class=[\"']result-snippet[\"'][^>]*>([\s\S]*?)</td>",
                     resp.text,
@@ -119,6 +126,7 @@ class FreeWebEngine:
                         parsed = urllib.parse.parse_qs(urllib.parse.urlparse(raw_url).query)
                         if "uddg" in parsed:
                             actual_url = parsed["uddg"][0]
+                    actual_url = urllib.parse.urljoin("https://duckduckgo.com", actual_url)
                     clean_title = html.unescape(re.sub(r"<[^>]+>", "", raw_title).strip())
                     clean_snippet = html.unescape(re.sub(r"<[^>]+>", "", snippets[i]).strip())
                     results.append(
@@ -302,6 +310,6 @@ class TinyFishClient:
                 pass
 
         # Free fallback scraper
-        resp = await self.free_engine.fetch(url=url, max_chars=max_chars)
-        resp.duration_seconds = time.perf_counter() - t0
-        return resp
+        fallback_resp = await self.free_engine.fetch(url=url, max_chars=max_chars)
+        fallback_resp.duration_seconds = time.perf_counter() - t0
+        return fallback_resp

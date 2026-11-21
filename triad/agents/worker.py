@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-import re
 import time
-from typing import Dict, Optional
+from typing import Dict, Literal, Optional
 
 from triad.agents.base import BaseAgent
 from triad.core.llm import BaseLLMProvider
 from triad.core.models import ExecutionResult, TaskSlice
+from triad.core.parsing import extract_json
 from triad.core.sandbox import IsolatedSandbox
 from triad.core.token_tracker import TokenTracker
 
@@ -97,6 +97,7 @@ class WorkerAgent(BaseAgent):
         )
 
         # Parse generated files
+        status: Literal["success", "failure", "timeout", "error"]
         try:
             files_written = self._parse_worker_files(resp.content)
             for file_path, content in files_written.items():
@@ -126,16 +127,23 @@ class WorkerAgent(BaseAgent):
         )
 
     def _parse_worker_files(self, content: str) -> Dict[str, str]:
-        """Extract written files from LLM JSON response."""
-        json_match = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", content)
-        clean = json_match.group(1).strip() if json_match else content.strip()
+        """Extract written files from an LLM JSON response."""
+        data = extract_json(content)
+        if not isinstance(data, dict):
+            raise ValueError(f"Worker response must be a JSON object, got {type(data).__name__}.")
 
-        if clean.startswith("```"):
-            clean = re.sub(r"^```[a-zA-Z]*\n", "", clean)
-            clean = re.sub(r"\n```$", "", clean)
-
-        data = json.loads(clean)
         files = data.get("files", {})
         if not files and "code" in data and "path" in data:
             files = {data["path"]: data["code"]}
-        return files
+
+        if not isinstance(files, dict):
+            raise ValueError("Worker response field 'files' must be a JSON object mapping paths to source code.")
+
+        validated: Dict[str, str] = {}
+        for path, code in files.items():
+            if not isinstance(path, str) or not path.strip():
+                raise ValueError("Worker response contains an invalid file path.")
+            if not isinstance(code, str):
+                raise ValueError(f"Worker response for '{path}' is not a string.")
+            validated[path] = code
+        return validated

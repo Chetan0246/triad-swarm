@@ -3,9 +3,18 @@
 from __future__ import annotations
 
 import collections
+import re
 from typing import Dict, List
 
 from triad.core.models import TaskSlice
+
+
+def _mermaid_id(slice_id: str) -> str:
+    """Sanitize a slice ID into a Mermaid-safe node identifier."""
+    sanitized = re.sub(r"[^A-Za-z0-9_]", "_", slice_id)
+    if not sanitized or sanitized[0].isdigit():
+        sanitized = f"node_{sanitized}"
+    return sanitized
 
 
 class CircularDependencyError(Exception):
@@ -127,13 +136,14 @@ class DAGScheduler:
             lines.append(f'    subgraph Wave_{wave_idx} ["Wave {wave_idx + 1} (Parallel Fan-Out)"]')
             for s in wave:
                 safe_title = s.title.replace('"', "'")
-                lines.append(f'        {s.slice_id}["{s.slice_id}<br><b>{safe_title}</b>"]')
+                node_id = _mermaid_id(s.slice_id)
+                lines.append(f'        {node_id}["{s.slice_id}<br><b>{safe_title}</b>"]')
             lines.append("    end")
 
         # Draw dependency arrows
         for sid, s in self.slices.items():
             for dep in s.dependencies:
-                lines.append(f"    {dep} --> {sid}")
+                lines.append(f"    {_mermaid_id(dep)} --> {_mermaid_id(sid)}")
 
         return "\n".join(lines)
 

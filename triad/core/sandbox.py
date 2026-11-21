@@ -11,6 +11,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
+try:  # POSIX-only; imported eagerly so child processes never take an import lock.
+    import resource
+except ImportError:  # pragma: no cover - Windows
+    resource = None  # type: ignore[assignment]
+
 
 @dataclass
 class ResourceLimits:
@@ -28,9 +33,9 @@ def _create_posix_preexec(limits: Optional[ResourceLimits]) -> Optional[Callable
         return None
 
     def _preexec() -> None:
+        if resource is None:
+            return
         try:
-            import resource
-
             if limits.max_memory_mb:
                 limit_bytes = limits.max_memory_mb * 1024 * 1024
                 resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
@@ -76,7 +81,9 @@ class IsolatedSandbox:
         return p
 
     def is_file_allowed(self, relative_path: str) -> bool:
-        if not self.allowed_files:
+        # ``None`` means unrestricted; an explicitly empty allowlist denies all
+        # writes so a slice with no target files cannot escape context isolation.
+        if self.allowed_files is None:
             return True
         norm = os.path.normpath(relative_path)
         for allowed in self.allowed_files:
