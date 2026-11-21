@@ -16,7 +16,12 @@ from rich.table import Table
 from triad import __version__
 from triad.agents.spec_generator import SpecGeneratorAgent
 from triad.core.contracts import ASTContractValidator
-from triad.core.llm import MockLLMProvider, get_llm_provider, populate_mock_telemetry_defaults
+from triad.core.llm import (
+    MockLLMProvider,
+    get_llm_provider,
+    load_dotenv_if_present,
+    populate_mock_telemetry_defaults,
+)
 from triad.core.models import InterfaceContract, WorkloadSpec
 from triad.core.repomap import RepoMapGenerator
 from triad.core.router import ModelRouter
@@ -387,6 +392,7 @@ async def run_benchmark_cmd(slices_count: int, provider_name: str) -> None:
 
 
 def main() -> None:
+    load_dotenv_if_present()
     parser = argparse.ArgumentParser(description="Triad Swarm: Minimal-Agent High-Efficiency Framework")
     subparsers = parser.add_subparsers(dest="command", help="Sub-commands")
 

@@ -24,8 +24,9 @@ Rules:
 1. CONTRACT-FIRST: Every task slice must declare an explicit InterfaceContract (module path, exported symbols, function/class signatures, language, invariants).
    Supported languages: "python", "typescript", "javascript", "html", "css", "web", "json_schema", "shell".
 2. PARALLEL DECOUPLING: Slices must be independent and disjoint whenever possible so workers can build them concurrently without waiting. For full-stack apps, separate into layers (e.g. database/models -> backend api -> frontend UI -> integration).
-3. TEST-DRIVEN: Every task slice must include executable acceptance tests that deterministically verify the implementation.
-4. TOKEN MINIMALISM: Provide precise, unambiguous specifications. Do not generate conversational filler.
+3. TEST-DRIVEN: Every task slice must include executable acceptance tests that deterministically verify the implementation. Tests must be self-contained and runnable via pytest.
+4. FOCUSED SLICES: Aim for 2 to 4 high-leverage functional slices. Target 1 primary file per slice (matching contract module_path). Do NOT create trivial slices for README or docs.
+5. TOKEN MINIMALISM: Provide precise, unambiguous specifications. Do not generate conversational filler.
 
 Output Format:
 You MUST respond with a valid JSON object matching this schema:

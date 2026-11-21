@@ -10,6 +10,13 @@ wheels/
 .venv
 
 .pytest_cache/
+# Secrets and local environments
+.env
+.env.*
+*.env
+
+# Outputs and caches
+out/
 examples/dist/
 examples/**/dist/
 *.log

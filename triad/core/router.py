@@ -19,6 +19,7 @@ from triad.core.llm import (
     OpenAICompatibleProvider,
     OpenAIProvider,
     get_llm_provider,
+    load_dotenv_if_present,
 )
 
 
@@ -52,17 +53,19 @@ class ModelRouter:
         architect_provider: Optional[BaseLLMProvider] = None,
         worker_provider: Optional[BaseLLMProvider] = None,
     ):
+        load_dotenv_if_present()
+        default_provider = "river" if os.environ.get("RIVER_API_KEY") else "gemini"
         self.architect_spec = (
             architect_spec
             or os.environ.get("TRIAD_ARCHITECT_MODEL")
             or os.environ.get("TRIAD_LLM_PROVIDER")
-            or "gemini"
+            or default_provider
         )
         self.worker_spec = (
             worker_spec
             or os.environ.get("TRIAD_WORKER_MODEL")
             or os.environ.get("TRIAD_LLM_PROVIDER")
-            or "gemini"
+            or default_provider
         )
         self.enable_cache = enable_cache
         self.cache_manager = cache_manager or (PromptCacheManager() if enable_cache else None)
@@ -77,9 +80,16 @@ class ModelRouter:
         if provider_name == "mock":
             return MockLLMProvider()
 
-        if provider_name in ("ollama", "local", "vllm", "openai-compatible"):
+        if provider_name in ("river", "ollama", "local", "vllm", "openai-compatible"):
+            default_model = (
+                "deepseek-ai/DeepSeek-V4.1-Flash-1017"
+                if (provider_name == "river" or os.environ.get("RIVER_API_KEY"))
+                else "qwen2.5-coder:7b"
+            )
             return OpenAICompatibleProvider(
-                model=model_name or "qwen2.5-coder:7b",
+                base_url=os.environ.get("RIVER_API_BASE") or os.environ.get("OPENAI_BASE_URL"),
+                api_key=os.environ.get("RIVER_API_KEY") or os.environ.get("OPENAI_API_KEY"),
+                model=model_name or default_model,
             )
 
         if provider_name == "openai":

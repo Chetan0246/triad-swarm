@@ -10,7 +10,7 @@ import shutil
 from typing import List
 
 from triad.core.contracts import ASTContractValidator
-from triad.core.models import TaskSlice, VerificationResult
+from triad.core.models import InterfaceContract, TaskSlice, VerificationResult
 from triad.core.sandbox import IsolatedSandbox
 from triad.core.token_tracker import TokenTracker
 
@@ -75,7 +75,17 @@ class PolyglotVerifier:
                     tokens_used=0,
                 )
 
-            is_valid, errors = ASTContractValidator.validate_code(code_content, task_slice.contract)
+            # Check full interface contract against the primary module; for auxiliary files, check syntax and security
+            if not task_slice.contract.module_path or target_file == task_slice.contract.module_path:
+                contract_to_check = task_slice.contract
+            else:
+                contract_to_check = InterfaceContract(
+                    module_path=target_file,
+                    forbidden_imports=task_slice.contract.forbidden_imports,
+                    language=task_slice.contract.language,
+                )
+
+            is_valid, errors = ASTContractValidator.validate_code(code_content, contract_to_check)
             if not is_valid:
                 error_msg = f"TypeScript Contract Violation in `{target_file}`:\n" + "\n".join(f"- {e}" for e in errors)
                 return VerificationResult(

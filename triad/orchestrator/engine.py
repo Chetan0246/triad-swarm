@@ -158,7 +158,9 @@ class TriadEngine:
             for _idx, res in enumerate(results):
                 if isinstance(res, Exception) or res is None:
                     if isinstance(res, Exception):
-                        print(f"Warning: slice task raised an exception (silently swallowed): {res!r}", file=sys.stderr)
+                        import traceback
+                        print(f"Error executing slice task: {res!r}", file=sys.stderr)
+                        traceback.print_exception(res, file=sys.stderr)
                     continue
                 _exec_res, verif_res, sand, worker_elapsed = res
                 cumulative_worker_time += worker_elapsed

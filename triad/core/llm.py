@@ -7,10 +7,28 @@ import os
 import re
 import time
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import httpx
 from pydantic import BaseModel
+
+
+def load_dotenv_if_present(env_path: Optional[str] = None) -> None:
+    """Lightweight 0-dependency .env file parser that populates os.environ if present."""
+    p = Path(env_path) if env_path else Path.cwd() / ".env"
+    if p.is_file():
+        try:
+            for line in p.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    k = k.strip()
+                    v = v.strip().strip("\"'")
+                    if k and k not in os.environ:
+                        os.environ[k] = v
+        except Exception:
+            pass
 
 
 class LLMResponse(BaseModel):
@@ -302,10 +320,11 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         self,
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
-        model: str = "qwen2.5-coder:7b",
+        model: Optional[str] = None,
     ):
         raw_base = (
             base_url
+            or os.environ.get("RIVER_API_BASE")
             or os.environ.get("OPENAI_BASE_URL")
             or os.environ.get("OLLAMA_HOST")
             or "http://localhost:11434/v1"
@@ -314,8 +333,17 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             self.endpoint = f"{raw_base}/chat/completions"
         else:
             self.endpoint = raw_base
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "local-token")
-        self.model = model
+        self.api_key = (
+            api_key
+            or os.environ.get("RIVER_API_KEY")
+            or os.environ.get("OPENAI_API_KEY")
+            or "local-token"
+        )
+        self.model = (
+            model
+            or os.environ.get("RIVER_MODEL")
+            or ("deepseek-ai/DeepSeek-V4.1-Flash-1017" if "river.ai" in self.endpoint or os.environ.get("RIVER_API_KEY") else "qwen2.5-coder:7b")
+        )
 
     async def generate(
         self,
@@ -423,15 +451,19 @@ def get_llm_provider(
     base_url: Optional[str] = None,
 ) -> BaseLLMProvider:
     """Factory helper to obtain an LLM provider based on config or env."""
+    load_dotenv_if_present()
     choice = provider_name or os.environ.get("TRIAD_LLM_PROVIDER", "").lower()
 
     if choice == "mock":
         provider: BaseLLMProvider = MockLLMProvider()
-    elif choice in ("ollama", "local", "vllm", "openai-compatible"):
+    elif (
+        choice in ("river", "ollama", "local", "vllm", "openai-compatible")
+        or (not choice and os.environ.get("RIVER_API_KEY"))
+    ):
         provider = OpenAICompatibleProvider(
-            base_url=base_url,
-            api_key=api_key,
-            model=model or "qwen2.5-coder:7b",
+            base_url=base_url or os.environ.get("RIVER_API_BASE"),
+            api_key=api_key or os.environ.get("RIVER_API_KEY"),
+            model=model or os.environ.get("RIVER_MODEL", "deepseek-ai/DeepSeek-V4.1-Flash-1017"),
         )
     elif (choice == "gemini" or not choice) and (api_key or os.environ.get("GEMINI_API_KEY")):
         provider = GeminiProvider(api_key=api_key, model=model or os.environ.get("GEMINI_MODEL", "gemini-3.8-flash"))
