@@ -29,8 +29,29 @@ class ASTContractValidator:
             return cls._validate_typescript(code_str, contract)
         elif contract.language == "json_schema":
             return cls._validate_json_schema(code_str, contract)
+        elif contract.language in ("html", "css", "web", "markdown", "text", "shell"):
+            return cls._validate_web_or_asset(code_str, contract)
         else:
             return cls._validate_python(code_str, contract)
+
+    @classmethod
+    def _validate_web_or_asset(cls, code_str: str, contract: InterfaceContract) -> Tuple[bool, List[str]]:
+        """Validate HTML, CSS, frontend templates, shell scripts, or text assets."""
+        errors: List[str] = []
+        if not code_str or not code_str.strip():
+            return False, ["Target asset file is empty."]
+
+        # Check required symbols/elements/selectors/classes
+        for symbol in contract.exported_symbols:
+            if symbol not in code_str:
+                errors.append(f"Missing required element/selector/content: '{symbol}'")
+
+        # Security check for forbidden patterns
+        for forbidden in contract.forbidden_imports:
+            if forbidden in code_str:
+                errors.append(f"Security violation: Forbidden pattern found: '{forbidden}'")
+
+        return len(errors) == 0, errors
 
     @classmethod
     def _validate_python(cls, code_str: str, contract: InterfaceContract) -> Tuple[bool, List[str]]:

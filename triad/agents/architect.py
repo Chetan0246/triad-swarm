@@ -12,11 +12,18 @@ from triad.core.models import InterfaceContract, TaskSlice, WorkloadSpec
 from triad.core.token_tracker import TokenTracker
 
 ARCHITECT_SYSTEM_PROMPT = """You are the Architect Agent in the Triad Swarm.
-Your sole job is to analyze the user's workload specification and decompose it into a set of disjoint, highly decoupled, parallelizable TaskSlices.
+Your job is to analyze the user's workload specification and decompose it into a set of disjoint, highly decoupled, parallelizable TaskSlices.
+
+Triad Swarm supports all software workloads:
+- Full-Stack Web Applications (Database schema/ORM + Backend API + Frontend UI components/HTML/Tailwind)
+- Backend APIs & Microservices (FastAPI, Express, Django, Flask, SQLite/PostgreSQL, Auth)
+- Frontend Applications & Dashboards (HTML5, Tailwind CSS, React, Vue, TypeScript, JS)
+- Everyday Tools & Automation (Web scrapers, ETL data pipelines, CLI utilities, report generators, bots)
 
 Rules:
-1. CONTRACT-FIRST: Every task slice must declare an explicit InterfaceContract (module path, exported symbols, function signatures, invariants).
-2. PARALLEL DECOUPLING: Slices must be independent and disjoint whenever possible so workers can build them concurrently without waiting.
+1. CONTRACT-FIRST: Every task slice must declare an explicit InterfaceContract (module path, exported symbols, function/class signatures, language, invariants).
+   Supported languages: "python", "typescript", "javascript", "html", "css", "web", "json_schema", "shell".
+2. PARALLEL DECOUPLING: Slices must be independent and disjoint whenever possible so workers can build them concurrently without waiting. For full-stack apps, separate into layers (e.g. database/models -> backend api -> frontend UI -> integration).
 3. TEST-DRIVEN: Every task slice must include executable acceptance tests that deterministically verify the implementation.
 4. TOKEN MINIMALISM: Provide precise, unambiguous specifications. Do not generate conversational filler.
 
@@ -33,7 +40,8 @@ You MUST respond with a valid JSON object matching this schema:
         "module_path": "relative/path/to/file.py",
         "exported_symbols": ["symbol1", "symbol2"],
         "signatures": {"symbol1": "def symbol1(arg1: str) -> bool"},
-        "invariants": ["Invariants list"]
+        "invariants": ["Invariants list"],
+        "language": "python"
       },
       "acceptance_tests": {
         "tests/test_slice.py": "def test_symbol1():\\n    assert True"

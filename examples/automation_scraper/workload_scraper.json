@@ -1,0 +1,68 @@
+{
+  "name": "Everyday Web Scraper & Report Generator",
+  "description": "Practical everyday automated data pipeline that fetches web data, parses structured items, and exports a responsive HTML and Markdown summary report.",
+  "acceptance_criteria": [
+    "Fetcher module handles HTTP requests with retry logic and error logging",
+    "Parser extracts article titles, URLs, and summaries into clean dictionaries",
+    "Reporter generates an HTML report with clean styling and a Markdown summary table"
+  ],
+  "slices": [
+    {
+      "slice_id": "slice_01_fetcher",
+      "title": "HTTP Data Fetcher",
+      "description": "Implement fetch_page with retry count and headers.",
+      "target_files": ["scraper/fetcher.py"],
+      "contract": {
+        "module_path": "scraper/fetcher.py",
+        "exported_symbols": ["fetch_content"],
+        "signatures": {
+          "fetch_content": "def fetch_content(url: str, retries: int = 2) -> dict"
+        },
+        "invariants": ["Returns dict with status_code, content, and url"],
+        "language": "python"
+      },
+      "acceptance_tests": {
+        "tests/test_fetcher.py": "from scraper.fetcher import fetch_content\n\ndef test_fetch():\n    res = fetch_content('https://example.com')\n    assert 'status_code' in res\n    assert 'content' in res\n"
+      },
+      "dependencies": []
+    },
+    {
+      "slice_id": "slice_02_parser",
+      "title": "HTML Item Parser",
+      "description": "Extract structured articles/records from HTML text.",
+      "target_files": ["scraper/parser.py"],
+      "contract": {
+        "module_path": "scraper/parser.py",
+        "exported_symbols": ["parse_items"],
+        "signatures": {
+          "parse_items": "def parse_items(html_str: str) -> list"
+        },
+        "invariants": ["Returns list of item dicts with title and link keys"],
+        "language": "python"
+      },
+      "acceptance_tests": {
+        "tests/test_parser.py": "from scraper.parser import parse_items\n\ndef test_parser():\n    html = '<div class=\"card\"><h2><a href=\"/post1\">Headline 1</a></h2><p>Summary 1</p></div>'\n    items = parse_items(html)\n    assert len(items) == 1\n    assert items[0]['title'] == 'Headline 1'\n    assert items[0]['link'] == '/post1'\n"
+      },
+      "dependencies": []
+    },
+    {
+      "slice_id": "slice_03_reporter",
+      "title": "Report Generator (Markdown & HTML)",
+      "description": "Format parsed items into an HTML digest report and Markdown summary.",
+      "target_files": ["scraper/reporter.py"],
+      "contract": {
+        "module_path": "scraper/reporter.py",
+        "exported_symbols": ["generate_report"],
+        "signatures": {
+          "generate_report": "def generate_report(items: list) -> dict"
+        },
+        "invariants": ["Returns dict with html and markdown keys"],
+        "language": "python"
+      },
+      "acceptance_tests": {
+        "tests/test_reporter.py": "from scraper.reporter import generate_report\n\ndef test_report():\n    items = [{'title': 'Item A', 'link': 'https://a.com', 'summary': 'Detail A'}]\n    rep = generate_report(items)\n    assert '<table>' in rep['html']\n    assert '| Item A |' in rep['markdown']\n"
+      },
+      "dependencies": ["slice_02_parser"]
+    }
+  ]
+}

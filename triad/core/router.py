@@ -49,6 +49,8 @@ class ModelRouter:
         worker_spec: Optional[str] = None,
         enable_cache: bool = True,
         cache_manager: Optional[PromptCacheManager] = None,
+        architect_provider: Optional[BaseLLMProvider] = None,
+        worker_provider: Optional[BaseLLMProvider] = None,
     ):
         self.architect_spec = (
             architect_spec
@@ -65,8 +67,8 @@ class ModelRouter:
         self.enable_cache = enable_cache
         self.cache_manager = cache_manager or (PromptCacheManager() if enable_cache else None)
 
-        self._architect_llm: Optional[BaseLLMProvider] = None
-        self._worker_llm: Optional[BaseLLMProvider] = None
+        self._architect_llm: Optional[BaseLLMProvider] = architect_provider
+        self._worker_llm: Optional[BaseLLMProvider] = worker_provider
 
     def _instantiate_provider(self, spec: str) -> BaseLLMProvider:
         """Instantiate an LLM provider based on spec string."""

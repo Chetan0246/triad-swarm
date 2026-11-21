@@ -11,6 +11,7 @@ wheels/
 
 .pytest_cache/
 examples/dist/
+examples/**/dist/
 *.log
 .triad_cache/
 trace.json

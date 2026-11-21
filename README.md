@@ -7,7 +7,7 @@
 [![Live Dashboard](https://img.shields.io/badge/live_dashboard-GitHub_Pages-blueviolet.svg)](https://chetan0246.github.io/triad-swarm/)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests Passing](https://img.shields.io/badge/tests-52%20passed-brightgreen.svg)](https://github.com/Chetan0246/triad-swarm/actions)
+[![Tests Passing](https://img.shields.io/badge/tests-57%20passed-brightgreen.svg)](https://github.com/Chetan0246/triad-swarm/actions)
 [![Token Savings](https://img.shields.io/badge/token%20savings-64.5%25-brightgreen.svg)](#-empirical-benchmark-results)
 [![Verification Cost](https://img.shields.io/badge/verification%20tokens-0%20tokens-cyan.svg)](#-the-core-philosophy-why-most-swarms-fail)
 
@@ -164,7 +164,22 @@ triad search "python asyncio priority queue best practices"
 triad fetch "https://docs.pydantic.dev/latest/" --max-chars 3000
 ```
 
-### 6. Interactive Visualizer Dashboard
+### 6. Full-Stack Web Apps & Everyday Automations
+
+Triad Swarm is not limited to single algorithms—it synthesizes and verifies complete multi-tier applications:
+
+- **Full-Stack Web Application ([examples/fullstack_app/](examples/fullstack_app/)):** Decomposes a full-stack request into SQLite Database Models → FastAPI REST API endpoints → Responsive Tailwind CSS UI dashboard, verified end-to-end with TestClient in 1.2s.
+- **Everyday Automation & Scraping ([examples/automation_scraper/](examples/automation_scraper/)):** An automated data pipeline featuring robust HTTP fetchers, regex HTML item extraction, and dual HTML/Markdown report generation.
+
+```bash
+# Run the full-stack web application generation example
+python examples/fullstack_app/run_fullstack.py
+
+# Run the everyday web scraper & digest pipeline
+python examples/automation_scraper/run_scraper.py
+```
+
+### 7. Interactive Visualizer Dashboard
 
 ```bash
 triad dashboard

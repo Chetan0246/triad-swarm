@@ -27,7 +27,18 @@ class InterfaceContract(BaseModel):
     )
     contract_schema: Optional[Dict[str, Any]] = Field(default=None, description="Optional JSON Schema / type contract")
     invariants: List[str] = Field(default_factory=list, description="Logical invariants that must hold true")
-    language: Literal["python", "typescript", "javascript", "json_schema"] = Field(
+    language: Literal[
+        "python",
+        "typescript",
+        "javascript",
+        "json_schema",
+        "html",
+        "css",
+        "web",
+        "shell",
+        "markdown",
+        "text",
+    ] = Field(
         default="python",
         description="Target language for contract verification"
     )

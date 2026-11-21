@@ -74,6 +74,7 @@ class TriadEngine:
     async def execute_workload(
         self,
         spec: WorkloadSpec,
+        slices: Optional[List[TaskSlice]] = None,
         repo_map: Optional[str] = None,
     ) -> SwarmMetrics:
         """Execute complete end-to-end workload through the DAG-scheduled Triad Swarm."""
@@ -85,14 +86,15 @@ class TriadEngine:
             metadata={"spec_name": spec.name},
         )
 
-        # Step 1: Architect Decomposition
-        arch_span = self.tracer.start_span(
-            name="Architect Decomposition",
-            phase="architect",
-            agent_id=self.architect.agent_id,
-        )
-        slices = await self.architect.decompose_workload(spec, repo_map=repo_map)
-        arch_span.finish(status="success", metadata={"slice_count": len(slices)})
+        # Step 1: Architect Decomposition (if not already provided)
+        if not slices:
+            arch_span = self.tracer.start_span(
+                name="Architect Decomposition",
+                phase="architect",
+                agent_id=self.architect.agent_id,
+            )
+            slices = await self.architect.decompose_workload(spec, repo_map=repo_map)
+            arch_span.finish(status="success", metadata={"slice_count": len(slices)})
 
         if not slices:
             workload_span.finish(status="failure")

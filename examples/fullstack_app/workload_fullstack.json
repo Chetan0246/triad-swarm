@@ -1,0 +1,71 @@
+{
+  "name": "Full-Stack Task Tracker Web App",
+  "description": "Production-grade full-stack web application featuring SQLite storage, FastAPI REST API, and a modern Tailwind CSS interactive frontend.",
+  "acceptance_criteria": [
+    "Database models persist tasks with id, title, completed status, and timestamp",
+    "FastAPI router provides GET /api/tasks, POST /api/tasks, and DELETE /api/tasks/{id}",
+    "Interactive single-page HTML/Tailwind frontend allows adding, viewing, and toggling tasks",
+    "Deterministic acceptance tests verify all endpoints using TestClient"
+  ],
+  "slices": [
+    {
+      "slice_id": "slice_01_db",
+      "title": "Database Layer (SQLite + Schema)",
+      "description": "Implement task database storage and query methods.",
+      "target_files": ["app/database.py"],
+      "contract": {
+        "module_path": "app/database.py",
+        "exported_symbols": ["TaskDB"],
+        "signatures": {
+          "TaskDB": "class TaskDB"
+        },
+        "invariants": ["Database creates tables on initialization if missing"],
+        "language": "python"
+      },
+      "acceptance_tests": {
+        "tests/test_db.py": "from app.database import TaskDB\n\ndef test_task_db(tmp_path):\n    db = TaskDB(db_path=str(tmp_path / 'test.db'))\n    t = db.add_task('Buy groceries')\n    assert t['title'] == 'Buy groceries'\n    assert t['completed'] is False\n    tasks = db.get_tasks()\n    assert len(tasks) == 1\n"
+      },
+      "dependencies": []
+    },
+    {
+      "slice_id": "slice_02_backend_api",
+      "title": "Backend REST API (FastAPI)",
+      "description": "Implement REST API endpoints and connect to database layer.",
+      "target_files": ["app/main.py"],
+      "contract": {
+        "module_path": "app/main.py",
+        "exported_symbols": ["create_app"],
+        "signatures": {
+          "create_app": "def create_app(db_path: str = 'tasks.db')"
+        },
+        "invariants": ["Returns 201 on task creation and 200 on task list"],
+        "language": "python"
+      },
+      "acceptance_tests": {
+        "tests/test_api.py": "import os\nfrom app.main import create_app\n\ndef test_api_routes(tmp_path):\n    app = create_app(db_path=str(tmp_path / 'api.db'))\n    from starlette.testclient import TestClient\n    client = TestClient(app)\n    resp = client.post('/api/tasks', json={'title': 'Deploy to Cloud'})\n    assert resp.status_code == 201\n    data = resp.json()\n    assert data['title'] == 'Deploy to Cloud'\n    list_resp = client.get('/api/tasks')\n    assert list_resp.status_code == 200\n    assert len(list_resp.json()) == 1\n"
+      },
+      "dependencies": ["slice_01_db"]
+    },
+    {
+      "slice_id": "slice_03_frontend_ui",
+      "title": "Interactive Frontend UI (HTML5 + Tailwind CSS)",
+      "description": "Responsive dashboard interface for viewing and creating tasks with AJAX calls.",
+      "target_files": ["app/static/index.html"],
+      "contract": {
+        "module_path": "app/static/index.html",
+        "exported_symbols": [
+          "<form id=\"task-form\"",
+          "<input id=\"task-input\"",
+          "<ul id=\"task-list\"",
+          "tailwindcss"
+        ],
+        "invariants": ["Semantic HTML5 form and container layout with Tailwind classes"],
+        "language": "html"
+      },
+      "acceptance_tests": {
+        "tests/test_frontend.py": "def test_frontend_structure():\n    with open('app/static/index.html') as f:\n        html = f.read()\n    assert 'id=\"task-form\"' in html\n    assert 'id=\"task-input\"' in html\n    assert 'id=\"task-list\"' in html\n"
+      },
+      "dependencies": ["slice_02_backend_api"]
+    }
+  ]
+}
