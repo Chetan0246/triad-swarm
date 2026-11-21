@@ -41,7 +41,7 @@ class DeterministicVerifier:
         for target_file in task_slice.target_files:
             try:
                 code_content = sandbox.read_file(target_file)
-            except FileNotFoundError:
+            except (FileNotFoundError, PermissionError):
                 return VerificationResult(
                     slice_id=slice_id,
                     passed=False,
@@ -68,7 +68,18 @@ class DeterministicVerifier:
 
         # Phase 2: Write Acceptance Tests (Zero tokens)
         for test_path, test_code in task_slice.acceptance_tests.items():
-            sandbox.write_file(test_path, test_code)
+            try:
+                sandbox.write_file(test_path, test_code)
+            except PermissionError:
+                return VerificationResult(
+                    slice_id=slice_id,
+                    passed=False,
+                    exit_code=2,
+                    verification_phase="ast_precheck",
+                    failure_trace=f"Acceptance test path `{test_path}` is not writable in the sandbox.",
+                    pruned_traceback=f"Acceptance test path `{test_path}` is not writable in the sandbox.",
+                    tokens_used=0,
+                )
 
         # Phase 3: Execute Acceptance Tests in Sandbox (Zero tokens)
         test_files = list(task_slice.acceptance_tests.keys())

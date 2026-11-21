@@ -38,7 +38,7 @@ class NaiveBaselineEngine:
             f"Workload: {spec.name}\n{spec.description}"
         ]
 
-        sandbox = IsolatedSandbox(cleanup=False)
+        sandbox = IsolatedSandbox(cleanup=True)
         tasks_succeeded = 0
         cumulative_time = 0.0
 

@@ -64,9 +64,16 @@ class MockLLMProvider(BaseLLMProvider):
         matched_content: Optional[str] = None
         full_text = f"{system_prompt or ''}\n{prompt}"
         for pat, resp in self.predefined_responses.items():
-            if pat in full_text or re.search(pat, full_text, re.IGNORECASE):
+            if pat in full_text:
                 matched_content = resp
                 break
+            try:
+                if re.search(pat, full_text, re.IGNORECASE):
+                    matched_content = resp
+                    break
+            except re.error:
+                # Pattern registered by a caller is not a valid regex; skip it.
+                continue
 
         if matched_content is None:
             if "Decompose this workload" in prompt or "Workload Name:" in prompt:
@@ -199,7 +206,8 @@ class GeminiProvider(BaseLLMProvider):
             if not candidates:
                 raise RuntimeError(f"No candidate in Gemini response: {data}")
 
-            parts = candidates[0].get("content", {}).get("parts", [])
+            content = candidates[0].get("content") or {}
+            parts = content.get("parts", [])
             content_text = "".join(p.get("text", "") for p in parts)
 
             usage = data.get("usageMetadata", {})

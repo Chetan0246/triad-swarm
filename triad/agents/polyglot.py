@@ -64,7 +64,7 @@ class PolyglotVerifier:
         for target_file in task_slice.target_files:
             try:
                 code_content = sandbox.read_file(target_file)
-            except FileNotFoundError:
+            except (FileNotFoundError, PermissionError):
                 return VerificationResult(
                     slice_id=slice_id,
                     passed=False,
@@ -91,7 +91,18 @@ class PolyglotVerifier:
 
         # Phase 2: Write Acceptance Tests (0 tokens)
         for test_path, test_code in task_slice.acceptance_tests.items():
-            sandbox.write_file(test_path, test_code)
+            try:
+                sandbox.write_file(test_path, test_code)
+            except PermissionError:
+                return VerificationResult(
+                    slice_id=slice_id,
+                    passed=False,
+                    exit_code=2,
+                    verification_phase="typescript_contract",
+                    failure_trace=f"Acceptance test path `{test_path}` is not writable in the sandbox.",
+                    pruned_traceback=f"Acceptance test path `{test_path}` is not writable in the sandbox.",
+                    tokens_used=0,
+                )
 
         # Phase 3: Execute Tests if Node/Vitest/Jest available
         test_files = list(task_slice.acceptance_tests.keys())

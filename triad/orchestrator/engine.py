@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 import time
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -54,6 +55,10 @@ class TriadEngine:
             self.architect_llm = architect_llm or self.llm
             self.worker_llm = worker_llm or self.llm
 
+        if max_concurrency < 1:
+            raise ValueError(f"max_concurrency must be >= 1, got {max_concurrency}")
+        if max_healing_attempts < 1:
+            raise ValueError(f"max_healing_attempts must be >= 1, got {max_healing_attempts}")
         self.max_concurrency = max_concurrency
         self.max_healing_attempts = max_healing_attempts
         self.output_dir = output_dir
@@ -150,13 +155,15 @@ class TriadEngine:
 
             for _idx, res in enumerate(results):
                 if isinstance(res, Exception) or res is None:
+                    if isinstance(res, Exception):
+                        print(f"Warning: slice task raised an exception (silently swallowed): {res!r}", file=sys.stderr)
                     continue
                 _exec_res, verif_res, sand, worker_elapsed = res
                 cumulative_worker_time += worker_elapsed
 
                 if verif_res and verif_res.passed and sand:
                     successful_slices += 1
-                    if self.output_dir:
+                    if self.output_dir and sand is not None:
                         sand.sync_to(self.output_dir)
         finally:
             # Ensure all sandboxes (verified or failed) are cleanly closed
@@ -208,7 +215,7 @@ class TriadEngine:
         task_slice: TaskSlice,
         worker_index: int,
         upstream_sandboxes: Optional[List[IsolatedSandbox]] = None,
-    ) -> Tuple[ExecutionResult, VerificationResult, IsolatedSandbox, float]:
+    ) -> Tuple[Optional[ExecutionResult], Optional[VerificationResult], Optional[IsolatedSandbox], float]:
         """Acquire semaphore and execute worker implementation + verification loop with artifact cascading."""
         async with self.semaphore:
             worker_t0 = time.perf_counter()
@@ -216,7 +223,7 @@ class TriadEngine:
             worker = WorkerAgent(worker_id=worker_id, llm=self.worker_llm, tracker=self.tracker)
 
             sandbox = IsolatedSandbox(
-                cleanup=False,
+                cleanup=True,
                 allowed_files=task_slice.target_files + list(task_slice.acceptance_tests.keys()),
             )
 
@@ -256,9 +263,23 @@ class TriadEngine:
                     # Use pruned traceback to reduce token consumption on healing
                     error_trace = verif_res.pruned_traceback or verif_res.failure_trace
 
-            assert exec_res is not None
-            assert verif_res is not None
-            worker_elapsed = time.perf_counter() - worker_t0
-            span.finish(status="success" if verif_res.passed else "failure", metadata={"attempts": exec_res.iterations})
+            if exec_res is None:
+                # Constructor validation guarantees max_healing_attempts >= 1 and that
+                # execute_slice returns or raises; this is a defensive fallback.
+                exec_res = ExecutionResult(
+                    slice_id=task_slice.slice_id,
+                    worker_id=worker_id,
+                    status="error",
+                    error_message="Worker produced no execution result",
+                )
 
+            worker_elapsed = time.perf_counter() - worker_t0
+            span.finish(
+                status="success" if verif_res is not None and verif_res.passed else "failure",
+                metadata={"attempts": exec_res.iterations},
+            )
+
+            # verif_res can be None when every attempt ended before verification
+            # (worker returned non-success on all attempts); the caller treats
+            # this as a failed slice via `verif_res and verif_res.passed`.
             return exec_res, verif_res, sandbox, worker_elapsed

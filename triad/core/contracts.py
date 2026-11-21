@@ -25,7 +25,7 @@ class ASTContractValidator:
     @classmethod
     def validate_code(cls, code_str: str, contract: InterfaceContract) -> Tuple[bool, List[str]]:
         """Validate code based on the contract's target language."""
-        if contract.language == "typescript":
+        if contract.language in ("typescript", "javascript"):
             return cls._validate_typescript(code_str, contract)
         elif contract.language == "json_schema":
             return cls._validate_json_schema(code_str, contract)
@@ -78,9 +78,11 @@ class ASTContractValidator:
                 node = found_symbols[symbol]
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     actual_args = [arg.arg for arg in node.args.args if arg.arg != "self"]
-                    # If expected_sig has comma-separated args, verify presence
-                    if "(" in expected_sig and ")" in expected_sig:
-                        arg_part = expected_sig[expected_sig.find("(") + 1 : expected_sig.find(")")]
+                    # If expected_sig has a parenthesized arg list, verify each expected arg is present
+                    open_idx = expected_sig.find("(")
+                    close_idx = expected_sig.find(")", open_idx + 1) if open_idx != -1 else -1
+                    if open_idx != -1 and close_idx != -1:
+                        arg_part = expected_sig[open_idx + 1 : close_idx]
                         expected_args = [
                             a.strip().split(":")[0].strip()
                             for a in arg_part.split(",")
@@ -118,23 +120,22 @@ class ASTContractValidator:
 
         # 5. Check Required Classes and their methods
         for class_name, required_methods in contract.required_classes.items():
-            if class_name in found_symbols:
-                class_node = found_symbols[class_name]
-                if isinstance(class_node, ast.ClassDef):
-                    class_methods = {
-                        item.name
-                        for item in class_node.body
-                        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
-                    }
-                    for method in required_methods:
-                        if method not in class_methods:
-                            errors.append(
-                                f"Class '{class_name}' is missing required method '{method}'"
-                            )
-                else:
-                    errors.append(f"Symbol '{class_name}' was expected to be a class.")
-            elif class_name in contract.exported_symbols:
+            class_node = found_symbols.get(class_name)
+            if class_node is None:
                 errors.append(f"Required class '{class_name}' not found.")
+            elif isinstance(class_node, ast.ClassDef):
+                class_methods = {
+                    item.name
+                    for item in class_node.body
+                    if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                }
+                for method in required_methods:
+                    if method not in class_methods:
+                        errors.append(
+                            f"Class '{class_name}' is missing required method '{method}'"
+                        )
+            else:
+                errors.append(f"Symbol '{class_name}' was expected to be a class.")
 
         return len(errors) == 0, errors
 

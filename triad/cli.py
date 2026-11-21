@@ -52,7 +52,11 @@ async def run_workload_cmd(
         console.print(f"[bold red]Error:[/bold red] Workload file `{workload_path}` does not exist.")
         sys.exit(1)
 
-    data = json.loads(p.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        console.print(f"[bold red]Error:[/bold red] Workload file is not valid JSON: {e}")
+        sys.exit(1)
     spec = WorkloadSpec(**data)
 
     console.print(f"🚀 [bold]Starting workload:[/bold] [yellow]{spec.name}[/yellow]")
@@ -242,7 +246,11 @@ async def graph_workload_cmd(workload_path: str, mermaid: bool) -> None:
         console.print(f"[bold red]Error:[/bold red] Workload file `{workload_path}` does not exist.")
         sys.exit(1)
 
-    data = json.loads(p.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        console.print(f"[bold red]Error:[/bold red] Workload file is not valid JSON: {e}")
+        sys.exit(1)
     spec = WorkloadSpec(**data)
 
     mock_llm = MockLLMProvider()
@@ -273,7 +281,11 @@ def verify_file_cmd(target_file: str, contract_path: str) -> None:
         sys.exit(1)
 
     code_str = tf.read_text(encoding="utf-8")
-    contract_data = json.loads(cf.read_text(encoding="utf-8"))
+    try:
+        contract_data = json.loads(cf.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        console.print(f"[bold red]Error:[/bold red] Contract file is not valid JSON: {e}")
+        sys.exit(1)
     contract = InterfaceContract(**contract_data)
 
     is_valid, errors = ASTContractValidator.validate_code(code_str, contract)

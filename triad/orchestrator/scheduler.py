@@ -25,7 +25,13 @@ class DAGScheduler:
     """
 
     def __init__(self, slices: List[TaskSlice]):
-        self.slices = {s.slice_id: s for s in slices}
+        self.slices: Dict[str, TaskSlice] = {}
+        for s in slices:
+            if s.slice_id in self.slices:
+                raise ValueError(
+                    f"Duplicate task slice_id in workload: '{s.slice_id}'"
+                )
+            self.slices[s.slice_id] = s
         self._validate_dependencies()
         self.waves: List[List[TaskSlice]] = self._compute_topological_waves()
 

@@ -97,16 +97,34 @@ class ArchitectAgent(BaseAgent):
             clean = re.sub(r"^```[a-zA-Z]*\n", "", clean)
             clean = re.sub(r"\n```$", "", clean)
 
-        data = json.loads(clean)
-        slice_dicts = data.get("slices", [])
-        if not slice_dicts and isinstance(data, list):
+        try:
+            data = json.loads(clean)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Architect produced unparseable JSON for TaskSlices: {e}") from e
+
+        if isinstance(data, dict):
+            slice_dicts = data.get("slices", [])
+        elif isinstance(data, list):
             slice_dicts = data
+        else:
+            raise ValueError(
+                f"Architect response is not a JSON object or list of slices: {type(data).__name__}"
+            )
 
         parsed: List[TaskSlice] = []
         for s in slice_dicts:
-            contract_data = s.get("contract", {})
+            if not isinstance(s, dict):
+                raise ValueError(f"Architect slice entry is not a JSON object: {s!r}")
+            for field in ("slice_id", "title", "description"):
+                if not s.get(field):
+                    raise ValueError(f"Architect slice entry is missing required field '{field}': {s!r}")
+
+            contract_data = s.get("contract") or {}
+            if not isinstance(contract_data, dict):
+                raise ValueError(f"Architect slice '{s.get('slice_id')}' has a non-object contract.")
+            target_files = s.get("target_files") or []
             contract = InterfaceContract(
-                module_path=contract_data.get("module_path", s.get("target_files", [""])[0]),
+                module_path=contract_data.get("module_path", target_files[0] if target_files else ""),
                 exported_symbols=contract_data.get("exported_symbols", []),
                 signatures=contract_data.get("signatures", {}),
                 type_hints=contract_data.get("type_hints", {}),
@@ -121,10 +139,10 @@ class ArchitectAgent(BaseAgent):
                     slice_id=s["slice_id"],
                     title=s["title"],
                     description=s["description"],
-                    target_files=s.get("target_files", []),
+                    target_files=target_files,
                     contract=contract,
-                    acceptance_tests=s.get("acceptance_tests", {}),
-                    dependencies=s.get("dependencies", []),
+                    acceptance_tests=s.get("acceptance_tests") or {},
+                    dependencies=s.get("dependencies") or [],
                 )
             )
 
