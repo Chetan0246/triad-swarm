@@ -4,13 +4,14 @@
 > Transform natural language prompts or issue descriptions into verified, tested multi-file pull requests at minimum token cost.
 
 [![CI](https://github.com/Chetan0246/triad-swarm/actions/workflows/ci.yml/badge.svg)](https://github.com/Chetan0246/triad-swarm/actions)
+[![Live Dashboard](https://img.shields.io/badge/live_dashboard-GitHub_Pages-blueviolet.svg)](https://chetan0246.github.io/triad-swarm/)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tests Passing](https://img.shields.io/badge/tests-52%20passed-brightgreen.svg)](https://github.com/Chetan0246/triad-swarm/actions)
 [![Token Savings](https://img.shields.io/badge/token%20savings-64.5%25-brightgreen.svg)](#-empirical-benchmark-results)
 [![Verification Cost](https://img.shields.io/badge/verification%20tokens-0%20tokens-cyan.svg)](#-the-core-philosophy-why-most-swarms-fail)
 
-[**Read Technical Research Whitepaper**](docs/research_whitepaper.md) • [**Launch Interactive Visualizer**](examples/visualizer/index.html) • [**Product Blueprint**](docs/product_blueprint.md)
+[**Read Technical Research Whitepaper**](docs/research_whitepaper.md) • [**Launch Live Visualizer**](https://chetan0246.github.io/triad-swarm/) • [**Product Blueprint**](docs/product_blueprint.md)
 
 ```text
        ┌────────────────────────────────────────────────────────┐
@@ -108,6 +109,10 @@ cd triad-swarm
 
 # Install in virtualenv (using uv or pip)
 pip install -e .
+
+# Or run with Docker
+docker build -t triad-swarm .
+docker run --rm triad-swarm version
 ```
 
 ### 2. Natural Language Prompt-to-Code (`triad new`)
